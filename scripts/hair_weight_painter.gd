@@ -174,6 +174,52 @@ func _paint_weights() -> void:
 	mesh_node.mesh = new_mesh
 	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices using BIND indices")
 
+	# ── Appliquer le vertex shader vent par-dessus le matériau original ──
+	_apply_wind_shader(mesh_node, new_mesh, y_min, y_max)
+
+func _apply_wind_shader(mesh_node: MeshInstance3D, new_mesh: ArrayMesh, y_min: float, y_max: float) -> void:
+	var wind_shader = load("res://shaders/hair_wind.gdshader") as Shader
+	if wind_shader == null:
+		push_warning("[HairWeightPainter] Impossible de charger res://shaders/hair_wind.gdshader")
+		return
+
+	for surf_idx in range(new_mesh.get_surface_count()):
+		var orig_mat = new_mesh.surface_get_material(surf_idx)
+		var std_mat = orig_mat as StandardMaterial3D
+		
+		var smat = ShaderMaterial.new()
+		smat.shader = wind_shader
+
+		# Copier les propriétés du matériau VRM original
+		if std_mat:
+			if std_mat.albedo_texture:
+				smat.set_shader_parameter("albedo_tex", std_mat.albedo_texture)
+			smat.set_shader_parameter("albedo_color",  std_mat.albedo_color)
+			smat.set_shader_parameter("roughness",     std_mat.roughness)
+			smat.set_shader_parameter("metallic",      std_mat.metallic)
+			# Alpha scissor
+			if std_mat.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR:
+				smat.set_shader_parameter("alpha_scissor", std_mat.alpha_scissor_threshold)
+			else:
+				smat.set_shader_parameter("alpha_scissor", 0.1)
+		else:
+			# Fallback : texture blanche, ciseaux conservateurs
+			smat.set_shader_parameter("albedo_color",  Color(1.0, 1.0, 1.0, 1.0))
+			smat.set_shader_parameter("alpha_scissor", 0.1)
+
+		# Paramètres géométriques du vent (calibrés sur les Y mesurés)
+		smat.set_shader_parameter("hair_root_y",     y_min)
+		smat.set_shader_parameter("hair_tip_y",      y_max)
+		smat.set_shader_parameter("wind_strength",   0.022)
+		smat.set_shader_parameter("wind_speed_slow", 0.75)
+		smat.set_shader_parameter("wind_speed_fast", 2.20)
+		smat.set_shader_parameter("wind_freq_y",     18.0)
+		smat.set_shader_parameter("wind_freq_x",     12.0)
+
+		new_mesh.surface_set_material(surf_idx, smat)
+
+	print("[HairWeightPainter v2] Wind shader applied to ", new_mesh.get_surface_count(), " surfaces")
+
 # Calcule la rest pose globale d'un os (en remontant la chaîne parentale)
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
 	var result = skel.get_bone_rest(bone_idx)
@@ -182,3 +228,4 @@ func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
 		result = skel.get_bone_rest(parent_idx) * result
 		parent_idx = skel.get_bone_parent(parent_idx)
 	return result
+
