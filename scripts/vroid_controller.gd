@@ -170,7 +170,11 @@ func _update_hair_physics(delta: float) -> void:
             else:
                 rot = Quaternion(rest_dir_skel, desired_dir_skel)
 
-        var new_basis = Basis(rot) * parent_gp.basis
+        # Base correcte = parent animé * rest rotation propre de l'os
+        var bone_rest = skel.get_bone_rest(bone_idx)
+        var rest_global_basis = parent_gp.basis * bone_rest.basis
+        # Perturbation appliquée PAR-DESSUS la pose de repos correcte
+        var new_basis = Basis(rot) * rest_global_basis
         skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, gp.origin), 1.0, true)
 
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
