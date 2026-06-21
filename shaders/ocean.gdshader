@@ -69,5 +69,31 @@ void fragment() {
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 2.0;
 
-	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h;
+	// --- SCINTILLEMENT SPÉCULAIRE (Glitter) ---
+	// Bruit haute fréquence pour créer des milliers de points
+	vec2 glitter_uv = world_xz * 6.0;
+	float noise_val = fract(sin(dot(glitter_uv, vec2(12.9898, 78.233))) * 43758.5453);
+	
+	// Seuil animé pour que les points scintillent
+	float glitter_thresh = 0.985 + sin(TIME * 6.0 + noise_val * 15.0) * 0.01;
+	float glitter = step(glitter_thresh, noise_val);
+	
+	// Aligner avec la lune (-35, -30 en Euler -> approché ici)
+	vec3 view_dir = normalize(VIEW);
+	vec3 moon_dir = normalize(vec3(-0.6, 0.6, -0.8)); // Direction depuis l'océan vers la lune
+	vec3 half_vec = normalize(view_dir + moon_dir);
+	
+	// Utilisation de la normale perturbée (NORMAL_MAP n'est appliqué qu'après fragment(), 
+	// mais on peut utiliser l'onde ou la normale approximative de base)
+	// Pour simplifier et être performant, on utilise vec3(0, 1, 0) modulé par la vague :
+	vec3 base_normal = normalize(vec3(-nm.x, 2.0, -nm.z));
+	
+	float spec_align = pow(max(dot(base_normal, half_vec), 0.0), 512.0); // Spéculaire très fin
+	float final_glitter = glitter * spec_align * 15.0; // Forte émission ciblée
+
+	// Émission globale (ambiance) + Scintillement
+	vec3 base_emission = vec3(0.005, 0.01, 0.03) + vec3(0.01, 0.015, 0.03) * h;
+	vec3 glitter_emission = vec3(0.6, 0.8, 1.0) * final_glitter;
+	
+	EMISSION = base_emission + glitter_emission;
 }

@@ -24,13 +24,17 @@ func _ready() -> void:
 	env.ambient_light_color = Color(0.08, 0.12, 0.25)
 	env.ambient_light_energy = 0.5
 	
-	# --- BROUILLARD ---
+	# --- BROUILLARD VOLUMÉTRIQUE ---
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_density = 0.003
+	env.fog_density = 0.002
 	env.fog_light_color = Color(0.03, 0.05, 0.12)
 	
-	env.volumetric_fog_enabled = false
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.015
+	env.volumetric_fog_albedo = Color(0.2, 0.35, 0.6)
+	env.volumetric_fog_emission = Color(0.02, 0.04, 0.1)
+	env.volumetric_fog_length = 250.0
 	
 	# --- POST-PROCESSING ---
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
