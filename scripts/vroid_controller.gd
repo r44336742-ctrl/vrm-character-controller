@@ -103,12 +103,20 @@ func _update_vrm_wind_physics() -> void:
     if sec_nodes.size() > 0:
         var vrm_sec = sec_nodes[0]
         var global_wind = WindSystem.get_wind_at(global_position)
-        
-        # Transformer le vent global en vent local au personnage
         var local_wind = character_model.global_transform.basis.inverse() * global_wind
+        var force = local_wind * 5.0
         
-        # Appliquer la force du vent via l'API native de godot-vrm
-        vrm_sec.springbone_add_force = local_wind * 5.0
+        # Bypass 1: Écrire directement sur le parent VRM toplevel (si is_child_of_vrm)
+        if vrm_sec.is_child_of_vrm:
+            vrm_sec.get_parent().springbone_add_force = force
+        
+        # Bypass 2: Écrire directement sur le VRMSecondary
+        vrm_sec.springbone_add_force = force
+        vrm_sec.modify_gravity = true
+        
+        # Bypass 3: Écrire directement sur CHAQUE runtime state
+        for sb in vrm_sec.spring_bones_internal:
+            sb.add_force = force
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -278,10 +286,10 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
                     bone.set("stiffness_scale", 0.8)
                     bone.set("gravity_scale", 1.0)
                 elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
-                    # Cheveux : 0 rigidité, force du vent pure !
-                    bone.set("drag_force_scale", 0.4)
-                    bone.set("stiffness_scale", 0.0) # ZERO résistance
-                    bone.set("gravity_scale", 0.0)
+                    # Cheveux : faible rigidité + gravité normale = pendule naturel + vent
+                    bone.set("drag_force_scale", 0.15)
+                    bone.set("stiffness_scale", 0.3)
+                    bone.set("gravity_scale", 1.0)
                 else:
                     # Autres (accessoires)
                     bone.set("drag_force_scale", 0.4)
