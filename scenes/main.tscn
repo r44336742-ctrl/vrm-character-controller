@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terr"]
 [ext_resource type="Script" path="res://scripts/fps_counter.gd" id="6_fps"]
 [ext_resource type="Script" path="res://scripts/ocean_generator.gd" id="7_ocean"]
+[ext_resource type="Script" path="res://scripts/lamppost_generator.gd" id="8_lamp"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_Stone"]
 albedo_color = Color(0.12, 0.11, 0.1, 1)
@@ -50,6 +51,9 @@ roughness = 0.2
 
 [node name="TerrainGenerator" type="Node3D" parent="EnvironmentAssets"]
 script = ExtResource("5_terr")
+
+[node name="LamppostGenerator" type="Node3D" parent="EnvironmentAssets"]
+script = ExtResource("8_lamp")
 
 [node name="Moon" type="MeshInstance3D" parent="EnvironmentAssets"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 25, -50)
