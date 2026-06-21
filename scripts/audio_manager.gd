@@ -1,41 +1,44 @@
 extends Node
 
-# --- AUDIO MANAGER : Mer + Pas ---
+# --- AUDIO MANAGER ---
 var ocean_player: AudioStreamPlayer
 var footstep_player: AudioStreamPlayer
 var footstep_timer: float = 0.0
 var step_interval: float = 0.45
 var is_walking: bool = false
 
-# Footstep buffer pré-calculé (Array de floats)
 var footstep_samples: PackedFloat32Array
+var footstep_playback_pos: int = -1
+
+var ocean_prev: float = 0.0
+var ocean_time: float = 0.0
 
 func _ready() -> void:
 	add_to_group("audio_manager")
-	call_deferred("_deferred_setup")
-
-func _deferred_setup() -> void:
-	_setup_ocean_sound()
-	_setup_footstep_sound()
-	print("[AudioManager] Setup complete")
+	_setup_ocean()
+	_setup_footstep()
+	print("[AudioManager] Initialized OK")
 
 func _process(delta: float) -> void:
-	# --- Son de la mer ---
-	var player = get_tree().get_first_node_in_group("player")
-	if player and ocean_player:
-		var dist_to_cliff = abs(player.global_position.z - (-75.0))
-		var normalized = clamp(dist_to_cliff / 50.0, 0.0, 1.0)
-		var vol = lerp(float(-8.0), float(-60.0), normalized * normalized)
-		ocean_player.volume_db = vol
+	# Volume mer
+	var player_node = get_tree().get_first_node_in_group("player")
+	if player_node and ocean_player:
+		var dist = abs(player_node.global_position.z + 75.0)
+		var t = clamp(dist / 50.0, 0.0, 1.0)
+		ocean_player.volume_db = lerp(-8.0, -60.0, t * t)
 	
-	# --- Son de pas ---
+	# Timer pas
 	if is_walking:
 		footstep_timer -= delta
 		if footstep_timer <= 0.0:
-			_play_footstep()
+			footstep_playback_pos = 0
 			footstep_timer = step_interval
 	else:
 		footstep_timer = 0.0
+
+func _physics_process(_delta: float) -> void:
+	_fill_ocean()
+	_fill_footstep()
 
 func start_walking() -> void:
 	is_walking = true
@@ -43,108 +46,80 @@ func start_walking() -> void:
 func stop_walking() -> void:
 	is_walking = false
 
-func set_step_interval(interval: float) -> void:
-	step_interval = interval
+func set_step_interval(i: float) -> void:
+	step_interval = i
 
-# --- OCÉAN : AudioStreamGenerator pour du bruit continu ---
-func _setup_ocean_sound() -> void:
+# --- OCÉAN ---
+func _setup_ocean() -> void:
 	var gen = AudioStreamGenerator.new()
 	gen.mix_rate = 22050.0
 	gen.buffer_length = 0.5
-	
 	ocean_player = AudioStreamPlayer.new()
 	ocean_player.stream = gen
 	ocean_player.volume_db = -20.0
-	ocean_player.bus = "Master"
 	add_child(ocean_player)
 	ocean_player.play()
-	
-	# Remplir en continu via _process_ocean
-	set_process(true)
 
-var ocean_phase1: float = 0.0
-var ocean_phase2: float = 0.0
-var ocean_prev: float = 0.0
-
-func _fill_ocean_buffer() -> void:
+func _fill_ocean() -> void:
 	if not ocean_player or not ocean_player.playing:
 		return
-	var playback = ocean_player.get_stream_playback()
-	if not playback:
+	var pb = ocean_player.get_stream_playback() as AudioStreamGeneratorPlayback
+	if not pb:
 		return
-	
-	var to_fill = playback.get_frames_available()
-	for i in range(to_fill):
-		# Bruit blanc filtré passe-bas (vagues)
+	var n = pb.get_frames_available()
+	ocean_time += float(n) / 22050.0
+	for _i in range(n):
 		var white = randf_range(-1.0, 1.0)
 		ocean_prev = ocean_prev * 0.96 + white * 0.04
-		
-		# Modulation de volume lente (vagues)
-		ocean_phase1 += 1.0 / 22050.0
-		var env = 0.3 + 0.7 * (0.5 + 0.5 * sin(ocean_phase1 * PI / 3.0))
-		
-		var sample = ocean_prev * env * 0.3
-		playback.push_frame(Vector2(sample, sample))
+		var env = 0.3 + 0.7 * abs(sin(ocean_time * PI / 3.0))
+		pb.push_frame(Vector2(ocean_prev * env * 0.3, ocean_prev * env * 0.3))
 
-func _physics_process(_delta: float) -> void:
-	_fill_ocean_buffer()
-	_push_footstep_samples()
-
-# --- PAS : Pré-générer les samples ---
-func _setup_footstep_sound() -> void:
-	var sample_rate = 22050
-	var duration = 0.12
-	var num_samples = int(sample_rate * duration)
-	
-	footstep_samples = PackedFloat32Array()
-	footstep_samples.resize(num_samples)
-	
+# --- PAS ---
+func _setup_footstep() -> void:
+	# Génère 0.12s d'impact sur pierre
+	var sr = 22050
+	var n = int(sr * 0.12)
+	footstep_samples.resize(n)
 	var prev: float = 0.0
-	for i in range(num_samples):
-		var t = float(i) / sample_rate
-		var envelope = exp(-t * 45.0)
-		var noise_val = randf_range(-1.0, 1.0)
-		prev = prev * 0.4 + noise_val * 0.6
-		var sample_val = prev * envelope * 0.7
-		sample_val += sin(t * 500.0) * envelope * 0.3
-		footstep_samples[i] = clampf(sample_val, -1.0, 1.0)
+	for i in range(n):
+		var t = float(i) / sr
+		var env = exp(-t * 45.0)
+		prev = prev * 0.4 + randf_range(-1.0, 1.0) * 0.6
+		footstep_samples[i] = clampf(prev * env * 0.7 + sin(t * 500.0) * env * 0.3, -1.0, 1.0)
 	
-	# Créer le player avec un AudioStreamGenerator aussi
 	var gen = AudioStreamGenerator.new()
-	gen.mix_rate = 22050.0
-	gen.buffer_length = 0.2
-	
+	gen.mix_rate = float(sr)
+	gen.buffer_length = 0.3
 	footstep_player = AudioStreamPlayer.new()
 	footstep_player.stream = gen
-	footstep_player.volume_db = 0.0  # Volume max
-	footstep_player.bus = "Master"
+	footstep_player.volume_db = 2.0  # Fort et audible
 	add_child(footstep_player)
 	footstep_player.play()
-	print("[AudioManager] Footstep ready, samples: ", num_samples)
+	print("[AudioManager] Footstep ready, samples=", n)
 
-var footstep_playback_pos: int = -1
-
-func _play_footstep() -> void:
-	footstep_playback_pos = 0 # Déclenche la lecture
-
-func _push_footstep_samples() -> void:
-	if footstep_playback_pos < 0 or not footstep_player or not footstep_player.playing:
+func _fill_footstep() -> void:
+	if not footstep_player or not footstep_player.playing:
 		return
-	var playback = footstep_player.get_stream_playback()
-	if not playback:
+	var pb = footstep_player.get_stream_playback() as AudioStreamGeneratorPlayback
+	if not pb:
 		return
+	var avail = pb.get_frames_available()
 	
-	var available = playback.get_frames_available()
-	var remaining = footstep_samples.size() - footstep_playback_pos
-	var to_push = mini(available, remaining)
-	
-	for i in range(to_push):
-		var s = footstep_samples[footstep_playback_pos]
-		playback.push_frame(Vector2(s, s))
-		footstep_playback_pos += 1
-	
-	if footstep_playback_pos >= footstep_samples.size():
-		# Remplir le reste avec du silence
-		for i in range(available - to_push):
-			playback.push_frame(Vector2.ZERO)
-		footstep_playback_pos = -1
+	if footstep_playback_pos >= 0:
+		# Jouer les samples du pas
+		var remaining = footstep_samples.size() - footstep_playback_pos
+		var to_push = mini(avail, remaining)
+		for i in range(to_push):
+			var s = footstep_samples[footstep_playback_pos]
+			pb.push_frame(Vector2(s, s))
+			footstep_playback_pos += 1
+		if footstep_playback_pos >= footstep_samples.size():
+			footstep_playback_pos = -1
+		# Silence pour le reste de l'espace disponible
+		var pushed = to_push
+		for _i in range(avail - pushed):
+			pb.push_frame(Vector2.ZERO)
+	else:
+		# Silence continu (garde le générateur en vie)
+		for _i in range(avail):
+			pb.push_frame(Vector2.ZERO)
