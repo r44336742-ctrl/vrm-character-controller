@@ -81,21 +81,23 @@ func _ready() -> void:
 	# --- LUNE PHYSIQUE (shader avec cratères) ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
 	if dummy_moon:
-		dummy_moon.position = Vector3(-120, 90, -500)
-		dummy_moon.scale = Vector3(5, 5, 5) # Plus grande
-		var moon_shader = load("res://shaders/moon.gdshader")
-		if moon_shader:
-			var moon_mat = ShaderMaterial.new()
-			moon_mat.shader = moon_shader
-			moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
-			moon_mat.set_shader_parameter("glow_intensity", 3.5)
-			dummy_moon.material_override = moon_mat
-		else:
-			# Fallback
-			var m_mat = dummy_moon.material_override as StandardMaterial3D
-			if m_mat:
-				m_mat.emission_energy_multiplier = 3.0
-				m_mat.emission = Color(0.7, 0.8, 1.0)
+		dummy_moon.visible = false # Cacher l'ancienne lune sphérique
+		
+	var moon_mesh_inst = MeshInstance3D.new()
+	var moon_quad = QuadMesh.new()
+	moon_quad.size = Vector2(25, 25) # Taille de la lune
+	moon_mesh_inst.mesh = moon_quad
+	moon_mesh_inst.position = Vector3(-120, 90, -500)
+	
+	var moon_shader = load("res://shaders/moon.gdshader")
+	if moon_shader:
+		var moon_mat = ShaderMaterial.new()
+		moon_mat.shader = moon_shader
+		moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
+		moon_mat.set_shader_parameter("glow_intensity", 3.5)
+		moon_mesh_inst.material_override = moon_mat
+	
+	get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
 	
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()

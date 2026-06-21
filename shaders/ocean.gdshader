@@ -10,13 +10,13 @@ uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
 // --- 5 VAGUES GERSTNER RÉALISTES ---
-// Steepness élevé = crêtes pointues, creux plats (vagues réelles)
-// Total steepness ~0.75 (proche du max, avant looping)
-uniform vec4 wA = vec4(1.0,   0.2,  0.22, 40.0);  // Houle dominante
-uniform vec4 wB = vec4(0.8,   1.0,  0.18, 28.0);  // Houle croisée
-uniform vec4 wC = vec4(1.0,   0.7,  0.14, 16.0);  // Vague moyenne
-uniform vec4 wD = vec4(-0.4,  1.0,  0.12, 10.0);  // Contre-vague
-uniform vec4 wE = vec4(0.6,  -0.8,  0.09,  6.0);  // Chop
+// Directions désalignées pour éviter l'effet quadrillage (grid/rhombus pattern)
+// Steepness modéré pour des vagues réalistes sans chevauchement excessif
+uniform vec4 wA = vec4(1.0,   0.35, 0.18, 45.0);  // Houle dominante
+uniform vec4 wB = vec4(0.2,   1.0,  0.15, 30.0);  // Houle croisée
+uniform vec4 wC = vec4(-0.6,  0.8,  0.12, 18.0);  // Vague moyenne
+uniform vec4 wD = vec4(0.85, -0.4,  0.09, 11.0);  // Contre-vague
+uniform vec4 wE = vec4(-0.5, -0.9,  0.06,  7.0);  // Chop
 
 varying vec2 world_xz;
 varying float wave_height;
