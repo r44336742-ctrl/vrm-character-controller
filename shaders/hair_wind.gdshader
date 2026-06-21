@@ -48,9 +48,9 @@ void vertex() {
     // Seulement XZ (pas de mouvement vertical)
     vec2 vel_xz    = player_velocity.xz;
     float speed    = length(vel_xz);
-    // Tilt quadratique : doux en walk, fort en sprint
-    // walk ≈ 3 m/s → 0.027m   sprint ≈ 6 m/s → 0.054m aux pointes
-    float tilt_mag = clamp(speed * speed * 0.0015, 0.0, 0.07);
+    // Tilt fort : walk visible, sprint très prononcé
+    // walk ≈ 3 m/s → 10cm   sprint ≈ 6 m/s → 35cm aux pointes
+    float tilt_mag = clamp(speed * speed * 0.012, 0.0, 0.35);
     // Direction INVERSE du mouvement → les cheveux traînent derrière
     vec2 tilt_dir  = -normalize(vel_xz + vec2(0.0001));
     vec3 tilt      = vec3(tilt_dir.x, 0.0, tilt_dir.y) * tilt_mag * falloff;
