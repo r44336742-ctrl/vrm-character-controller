@@ -1,28 +1,26 @@
-# Moonlit Void - Projet de Déambulation Nocturne
+# Moonlit Void - Nocturnal Roaming Project
 
-## Stack Technique
-- **Moteur :** Godot Engine 4.6.x (ou 4.x compatible)
-- **Langage :** GDScript
-- **Renderer :** Forward+ (Direct3D 12 / Vulkan)
-- **Pipeline :** 100% Headless via CLI (aucune interface graphique d'édition)
+## Technical Stack
+- **Engine:** Godot Engine 4.6.x (or 4.x compatible)
+- **Language:** GDScript
+- **Renderer:** Forward+ (Direct3D 12 / Vulkan)
+- **Pipeline:** 100% Headless via CLI (no graphical editor interface)
 
-## Commandes CLI (Pipeline Headless)
-Toutes les commandes doivent être exécutées à la racine du projet depuis l'invite de commande Windows. Vous pouvez utiliser le fichier `pipeline_headless.bat` ou les lancer manuellement :
+## Current State
+![Current State](assets/images/screenshot.png)
 
-1. **Importer les assets (génère les .import) :**
+## CLI Commands (Headless Pipeline)
+All commands must be executed at the root of the project from the Windows command prompt. You can use the `pipeline_headless.bat` file or run them manually:
+
+1. **Import assets (generates .import files):**
    `godot4 --headless --path . --import`
-2. **Valider la scène principale (vérifie les erreurs de script) :**
+2. **Validate the main scene (checks for script errors):**
    `godot4 --headless --path . res://scenes/main.tscn --quit-after 5`
-3. **Exporter le jeu (.exe Windows) :**
+3. **Export the game (Windows .exe):**
    `godot4 --headless --path . --export-release "Windows Desktop" build/jeu.exe`
 
-## Lancer le jeu
-Exécutez `build/jeu.exe` sur Windows 11.
-- Le jeu se lance en plein écran sans menu.
-- Contrôles : ZQSD/WASD ou Flèches directionnelles.
-- Échap pour quitter.
-
-## TODO - À compléter
-- [x] Documenter l'intégration des assets API 3D (Meshy/Tripo) : Les assets ont été générés en placeholder via Godot faute de clé API. Utilisez le script `tripo_meshy_api.py` pour télécharger vos propres modèles et écrasez `assets/models/character.glb` et `assets/models/ruins.glb`.
-- [x] Documenter les ajustements visuels de l'éclairage/brouillard si modifiés.
-- [ ] Valider l'optimisation 60 FPS avec les vrais modèles.
+## Running the game
+Run `build/jeu.exe` on Windows 11.
+- The game launches in full screen without a menu.
+- Controls: WASD/ZQSD or Arrow keys.
+- Esc to quit.
