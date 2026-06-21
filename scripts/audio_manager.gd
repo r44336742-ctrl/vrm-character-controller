@@ -6,11 +6,12 @@ var footstep_player: AudioStreamPlayer
 var footstep_timer: float = 0.0
 var step_interval: float = 0.45
 var is_walking: bool = false
-var footstep_stream: AudioStreamWAV  # Pré-généré une seule fois
+var footstep_stream: AudioStreamWAV
 
 func _ready() -> void:
 	_setup_ocean_sound()
 	_setup_footstep_sound()
+	print("[AudioManager] Ready - ocean: ", ocean_player != null, " footstep: ", footstep_player != null)
 
 func _process(delta: float) -> void:
 	# --- Son de la mer ---
@@ -25,7 +26,9 @@ func _process(delta: float) -> void:
 	if is_walking:
 		footstep_timer -= delta
 		if footstep_timer <= 0.0:
-			_play_footstep()
+			if footstep_player and footstep_stream:
+				footstep_player.stream = footstep_stream
+				footstep_player.play()
 			footstep_timer = step_interval
 	else:
 		footstep_timer = 0.0
@@ -38,6 +41,15 @@ func stop_walking() -> void:
 
 func set_step_interval(interval: float) -> void:
 	step_interval = interval
+
+# --- Encode signed 16-bit sample into PackedByteArray ---
+func _encode_s16(data: PackedByteArray, offset: int, value: int) -> void:
+	# Clamp to 16-bit range
+	value = clampi(value, -32768, 32767)
+	# Convert to unsigned representation for byte storage
+	var unsigned_val = value & 0xFFFF
+	data[offset] = unsigned_val & 0xFF
+	data[offset + 1] = (unsigned_val >> 8) & 0xFF
 
 # --- OCÉAN ---
 func _setup_ocean_sound() -> void:
@@ -66,10 +78,8 @@ func _setup_ocean_sound() -> void:
 		prev2 = prev2 * (1.0 - alpha * 0.7) + prev1 * (alpha * 0.7)
 		var wave_env = 0.3 + 0.7 * (0.5 + 0.5 * sin(t * PI / 3.5))
 		var sample_val = prev2 * wave_env * 0.35
-		sample_val = clamp(sample_val, -1.0, 1.0)
-		var int_val = int(sample_val * 32767.0)
-		data[i * 2] = int_val & 0xFF
-		data[i * 2 + 1] = (int_val >> 8) & 0xFF
+		sample_val = clampf(sample_val, -1.0, 1.0)
+		_encode_s16(data, i * 2, int(sample_val * 32767.0))
 	
 	stream.data = data
 	
@@ -79,11 +89,12 @@ func _setup_ocean_sound() -> void:
 	ocean_player.bus = "Master"
 	add_child(ocean_player)
 	ocean_player.play()
+	print("[AudioManager] Ocean sound started")
 
-# --- PAS : Pré-génère le son une seule fois ---
+# --- PAS ---
 func _setup_footstep_sound() -> void:
 	var sample_rate = 22050
-	var duration = 0.1
+	var duration = 0.12
 	var num_samples = int(sample_rate * duration)
 	
 	footstep_stream = AudioStreamWAV.new()
@@ -97,24 +108,20 @@ func _setup_footstep_sound() -> void:
 	var prev: float = 0.0
 	for i in range(num_samples):
 		var t = float(i) / sample_rate
-		var envelope = exp(-t * 50.0)
+		# Impact sec sur pierre
+		var envelope = exp(-t * 45.0)
 		var noise_val = randf_range(-1.0, 1.0)
-		prev = prev * 0.5 + noise_val * 0.5
-		var sample_val = prev * envelope * 0.6
-		# Tonalité basse pour l'impact pierre
-		sample_val += sin(t * 600.0) * envelope * 0.2
-		sample_val = clamp(sample_val, -1.0, 1.0)
-		var int_val = int(sample_val * 32767.0)
-		data[i * 2] = int_val & 0xFF
-		data[i * 2 + 1] = (int_val >> 8) & 0xFF
+		prev = prev * 0.4 + noise_val * 0.6
+		var sample_val = prev * envelope * 0.7
+		# Basse fréquence pour le "thud"
+		sample_val += sin(t * 500.0) * envelope * 0.3
+		sample_val = clampf(sample_val, -1.0, 1.0)
+		_encode_s16(data, i * 2, int(sample_val * 32767.0))
 	
 	footstep_stream.data = data
 	
 	footstep_player = AudioStreamPlayer.new()
-	footstep_player.volume_db = -6.0
+	footstep_player.volume_db = -3.0 # Bien audible
 	footstep_player.bus = "Master"
 	add_child(footstep_player)
-
-func _play_footstep() -> void:
-	footstep_player.stream = footstep_stream
-	footstep_player.play()
+	print("[AudioManager] Footstep sound ready, samples: ", num_samples)

@@ -17,6 +17,7 @@ var dress_material: ShaderMaterial
 const HAIR_MESH_NAMES: Array[String] = ["Object_2"]
 
 func _ready() -> void:
+    add_to_group("player")
     # On récupère le modèle FBX instancié
     var character_model = $ModelPivot.get_child(0)
     if character_model:
