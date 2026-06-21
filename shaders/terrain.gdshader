@@ -1,9 +1,9 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform vec3 color_grass : source_color = vec3(0.06, 0.08, 0.07); // Herbe morte/sombre
-uniform vec3 color_dirt  : source_color = vec3(0.08, 0.07, 0.06); // Terre sombre
-uniform vec3 color_rock  : source_color = vec3(0.09, 0.10, 0.12); // Roche bleu-gris
+uniform vec3 color_grass : source_color = vec3(0.01, 0.01, 0.012); // Herbe cendre/noire
+uniform vec3 color_dirt  : source_color = vec3(0.015, 0.01, 0.01); // Terre calcinée
+uniform vec3 color_rock  : source_color = vec3(0.005, 0.005, 0.01); // Roche obsidienne
 
 varying float world_y;
 
