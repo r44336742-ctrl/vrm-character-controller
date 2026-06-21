@@ -38,25 +38,49 @@ func _paint_weights() -> void:
 	if mesh == null:
 		return
 	
+	# ── Construire le mapping nom_os → bind_index depuis le Skin ──
+	var skin: Skin = mesh_node.skin
+	var bone_name_to_bind: Dictionary = {}
+	if skin:
+		for b in range(skin.get_bind_count()):
+			var bname = skin.get_bind_name(b)
+			if bname != "":
+				bone_name_to_bind[bname] = b
+	
+	# Résoudre Head en bind index
+	var head_bind: int = bone_name_to_bind.get(head_bone_name, -1)
+	if head_bind == -1:
+		# Fallback : chercher dans les arrays originaux quel bind est le plus utilisé
+		var test_arrays = mesh.surface_get_arrays(0)
+		if test_arrays[Mesh.ARRAY_BONES]:
+			head_bind = test_arrays[Mesh.ARRAY_BONES][0]  # Le plus commun
+		else:
+			return
+	
+	print("[HairWeightPainter v2] Head bind index: ", head_bind)
+	
 	var head_idx: int = skel.find_bone(head_bone_name)
 	if head_idx == -1:
 		return
 	
-	# Récupérer la position du sommet du crâne en skeleton space
-	# La position HEAD rest est l'ancre supérieure
-	var head_global_rest = _get_bone_global_rest(skel, head_idx)
-	var head_pos: Vector3 = head_global_rest.origin
-	
-	# Collecter les os Hair avec leurs positions en skeleton-space
-	var hair_bones: Array[int] = []
+	# Collecter les os Hair avec positions ET bind indices
+	var hair_bones: Array[int] = []         # skeleton bone indices (pour positions)
+	var hair_bone_binds: Array[int] = []    # bind indices (pour ARRAY_BONES)
 	var hair_bone_positions: Array[Vector3] = []
 	for i in range(skel.get_bone_count()):
-		if "Hair" in skel.get_bone_name(i):
-			hair_bones.append(i)
-			hair_bone_positions.append(_get_bone_global_rest(skel, i).origin)
+		var bname = skel.get_bone_name(i)
+		if "Hair" in bname:
+			var bind_idx = bone_name_to_bind.get(bname, -1)
+			if bind_idx >= 0:
+				hair_bones.append(i)
+				hair_bone_binds.append(bind_idx)
+				hair_bone_positions.append(_get_bone_global_rest(skel, i).origin)
 	
 	if hair_bones.is_empty():
+		print("[HairWeightPainter v2] No hair bones found in skin binds!")
 		return
+	
+	print("[HairWeightPainter v2] Found ", hair_bones.size(), " hair bones with valid bind indices")
 	
 	# Trouver la hauteur Y max et min des cheveux pour calibrer le gradient
 	var y_max: float = -INF
@@ -69,11 +93,10 @@ func _paint_weights() -> void:
 			y_min = minf(y_min, verts[v].y)
 	
 	var hair_height = y_max - y_min
-	# Le seuil de racine : 20% du haut reste sur Head (ancre solide)
 	var root_y = y_max - hair_height * 0.20
 	
 	print("[HairWeightPainter v2] Hair Y range: ", y_min, " to ", y_max, " height=", hair_height)
-	print("[HairWeightPainter v2] Root threshold Y: ", root_y, " (top 15% stays on Head)")
+	print("[HairWeightPainter v2] Root threshold Y: ", root_y, " (top 20% stays on Head)")
 	
 	# Recréer le mesh avec les nouveaux weights
 	var new_mesh = ArrayMesh.new()
@@ -98,34 +121,30 @@ func _paint_weights() -> void:
 		for v in range(vert_count):
 			var vert_pos: Vector3 = vertices[v]
 			
-			# Trouver l'os Hair le plus proche (distance horizontale XZ prioritaire)
-			var closest_bone_idx: int = -1
+			# Trouver l'os Hair le plus proche
+			var closest_bind_idx: int = -1
 			var closest_dist: float = INF
 			for bi in range(hair_bones.size()):
 				var bone_pos = hair_bone_positions[bi]
-				# Distance 3D mais avec poids sur XZ pour mieux cibler les mèches
 				var dx = vert_pos.x - bone_pos.x
 				var dz = vert_pos.z - bone_pos.z
 				var dy = vert_pos.y - bone_pos.y
 				var dist = sqrt(dx*dx + dz*dz + dy*dy*0.3)
 				if dist < closest_dist:
 					closest_dist = dist
-					closest_bone_idx = hair_bones[bi]
+					closest_bind_idx = hair_bone_binds[bi]  # BIND index, pas skeleton index !
 			
-			# Gradient basé sur la hauteur Y : 
-			# - Au dessus de root_y → 100% Head (racines)
-			# - En dessous de root_y → gradient vers Hair bone (pointes)
+			# Gradient basé sur la hauteur Y
 			var hair_weight: float = 0.0
 			if vert_pos.y < root_y:
-				# Gradient: max 65% d'influence aux pointes, racines restent sur Head
 				var progress = (root_y - vert_pos.y) / (root_y - y_min)
 				hair_weight = clampf(pow(progress, 0.8) * 0.65, 0.0, 0.65)
 			
-			if hair_weight > 0.01 and closest_bone_idx >= 0:
+			if hair_weight > 0.01 and closest_bind_idx >= 0:
 				var head_weight: float = 1.0 - hair_weight
-				new_bones[v * 4 + 0] = head_idx
+				new_bones[v * 4 + 0] = head_bind      # BIND index pour Head
 				new_weights[v * 4 + 0] = head_weight
-				new_bones[v * 4 + 1] = closest_bone_idx
+				new_bones[v * 4 + 1] = closest_bind_idx  # BIND index pour Hair bone
 				new_weights[v * 4 + 1] = hair_weight
 				new_bones[v * 4 + 2] = 0
 				new_weights[v * 4 + 2] = 0.0
@@ -141,7 +160,7 @@ func _paint_weights() -> void:
 		painted_total += painted_count
 	
 	mesh_node.mesh = new_mesh
-	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices")
+	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices using BIND indices")
 
 # Calcule la rest pose globale d'un os (en remontant la chaîne parentale)
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:

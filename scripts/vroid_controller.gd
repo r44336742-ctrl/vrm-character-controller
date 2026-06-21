@@ -33,6 +33,7 @@ var _hair_bone_lengths:    Array[float]   = []  # longueur physique du brin (m)
 var _hair_tail_cur:        Array[Vector3] = []  # position pointe courante (world)
 var _hair_tail_prv:        Array[Vector3] = []  # position pointe précédente (world)
 var _hair_initialized: bool = false
+var _debug_frame: int = 0
 
 # Constantes physiques
 const H_DRAG:      float = 0.06   # Très faible = oscille longtemps
@@ -92,6 +93,9 @@ func _update_hair_physics(delta: float) -> void:
     var dt2 = delta * delta
     var t = Time.get_ticks_msec() * 0.001  # temps en secondes
 
+    _debug_frame += 1
+    var _diag_logged_this_frame = false
+
     for idx in range(_hair_bone_indices.size()):
         var bone_idx   = _hair_bone_indices[idx]
         var parent_idx = _hair_parent_indices[idx]
@@ -103,48 +107,48 @@ func _update_hair_physics(delta: float) -> void:
         var gp        = skel.get_bone_global_pose(bone_idx)
         var rest_dir_skel = (parent_gp.basis * rest_dir).normalized()
 
+        # DIAGNOSTIC: pour le 1er os Hair, log toutes les 30 frames
+        var do_log = (is_hair and not _diag_logged_this_frame and (_debug_frame == 5 or _debug_frame == 35 or _debug_frame == 65))
+        if do_log:
+            var pre_rot = gp.basis.get_rotation_quaternion()
+            print("[DIAG frame ", _debug_frame, "] BEFORE override: bone=", bname, " rot=", pre_rot)
+
         var rot: Quaternion
 
         if is_hair:
             # ══════════════════════════════════════════════════════════
-            # CHEVEUX : oscillation sinusoïdale procédurale (faux vent)
-            # 3 fréquences superposées + offset de phase par os
-            # Résultat : mouvement organique, naturel, toujours visible
+            # CHEVEUX : oscillation sinusoïdale en ESPACE LOCAL de l'os
+            # Rotation directe autour des axes locaux X et Z
             # ══════════════════════════════════════════════════════════
-            # Phase unique par os (ratio d'or → distribution maximale)
-            var phase = float(idx) * 2.39996  # 2π * golden_ratio ≈ 2.4
+            var phase = float(idx) * 2.39996
 
-            # Trois couches d'oscillation :
-            var sway   = sin(t * 0.7  + phase)         * 0.18  # balancement lent
-            var flutter = sin(t * 2.1  + phase * 1.3)  * 0.08  # flutter naturel
-            var micro   = sin(t * 4.7  + phase * 2.1)  * 0.03  # micro-vibration
+            # Rotation autour de l'axe X local (balancement avant/arrière)
+            var angle_x = sin(t * 0.7 + phase) * 0.35 + sin(t * 2.1 + phase * 1.3) * 0.15
 
-            # Biais directionnel du vent (incline les cheveux dans le sens du vent)
-            var wind_dir_skel = (skel_xf_inv.basis * wind_world).normalized()
-            var wind_bias = wind_world.length() * 0.004 * sin(t * 0.4 + phase * 0.5)
+            # Rotation autour de l'axe Z local (balancement gauche/droite)
+            var angle_z = sin(t * 0.9 + phase * 0.7) * 0.30 + sin(t * 3.3 + phase * 1.7) * 0.10
 
-            var total_angle = sway + flutter + micro
+            # Micro-vibration sur Y (twist)
+            var angle_y = sin(t * 4.7 + phase * 2.1) * 0.04
 
-            # Axe latéral : perpendiculaire au brin + composante vent
-            var lateral_axis = rest_dir_skel.cross(Vector3.UP)
-            if lateral_axis.length() < 0.01:
-                lateral_axis = rest_dir_skel.cross(Vector3.RIGHT)
-            lateral_axis = lateral_axis.normalized()
+            # Quaternion local pur = rotation autour des axes propres de l'os
+            var local_rot = Quaternion.from_euler(Vector3(angle_x, angle_y, angle_z))
 
-            # Axe de vent projeté perpendiculairement au brin
-            var wind_axis = rest_dir_skel.cross(wind_dir_skel)
-            if wind_axis.length() < 0.01:
-                wind_axis = lateral_axis
-            wind_axis = wind_axis.normalized()
+            # Application: rest_global * local_rot = oscillation visible
+            var bone_rest = skel.get_bone_rest(bone_idx)
+            var rest_global_basis = parent_gp.basis * bone_rest.basis
+            var new_basis = rest_global_basis * Basis(local_rot)
+            var correct_origin = (parent_gp * bone_rest).origin
+            skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, correct_origin), 1.0, true)
 
-            # Rotation combinée : oscillation + biais vent
-            var rot_sway = Quaternion(lateral_axis, total_angle)
-            var rot_wind = Quaternion(wind_axis, wind_bias)
-            rot = rot_wind * rot_sway
+            if do_log:
+                print("[DIAG HAIR] angles_deg=(", rad_to_deg(angle_x), ",", rad_to_deg(angle_y), ",", rad_to_deg(angle_z), ") local_rot=", local_rot)
+                print("[DIAG HAIR] bone_rest.basis=", bone_rest.basis)
+                print("[DIAG HAIR] gp.origin=", gp.origin, " vs rest_global_origin=", (parent_gp * bone_rest).origin)
 
         else:
             # ══════════════════════════════════════════════════════════
-            # JUPE / AUTRES : verlet physique (déjà parfait selon user)
+            # JUPE : verlet physique inchangé (fonctionne déjà)
             # ══════════════════════════════════════════════════════════
             var bone_len = minf(_hair_bone_lengths[idx], 0.18)
             var root_world = skel_xf * gp.origin
@@ -163,19 +167,25 @@ func _update_hair_physics(delta: float) -> void:
 
             var desired_dir_skel = (skel_xf_inv.basis * (next - root_world)).normalized()
             var d = rest_dir_skel.dot(desired_dir_skel)
+            var skirt_rot: Quaternion
             if d < -0.9999:
                 var perp = rest_dir_skel.cross(Vector3.UP)
                 if perp.length() < 0.001: perp = rest_dir_skel.cross(Vector3.RIGHT)
-                rot = Quaternion(perp.normalized(), PI)
+                skirt_rot = Quaternion(perp.normalized(), PI)
             else:
-                rot = Quaternion(rest_dir_skel, desired_dir_skel)
+                skirt_rot = Quaternion(rest_dir_skel, desired_dir_skel)
+            var bone_rest = skel.get_bone_rest(bone_idx)
+            var rest_global_basis = parent_gp.basis * bone_rest.basis
+            var new_basis = rest_global_basis * Basis(skirt_rot)
+            skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, gp.origin), 1.0, true)
 
-        # Base correcte = parent animé * rest rotation propre de l'os
-        var bone_rest = skel.get_bone_rest(bone_idx)
-        var rest_global_basis = parent_gp.basis * bone_rest.basis
-        # Perturbation appliquée PAR-DESSUS la pose de repos correcte
-        var new_basis = Basis(rot) * rest_global_basis
-        skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, gp.origin), 1.0, true)
+        # DIAGNOSTIC
+        if do_log:
+            var post_gp = skel.get_bone_global_pose(bone_idx)
+            var post_rot = post_gp.basis.get_rotation_quaternion()
+            var pre_rot2 = gp.basis.get_rotation_quaternion()
+            print("[DIAG frame ", _debug_frame, "] BEFORE=", pre_rot2, " AFTER=", post_rot, " SAME=", pre_rot2.is_equal_approx(post_rot))
+            _diag_logged_this_frame = true
 
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
     var result = skel.get_bone_rest(bone_idx)
@@ -262,6 +272,12 @@ func _physics_process(delta: float) -> void:
         velocity.z = lerp(velocity.z, 0.0, friction * delta)
 
     move_and_slide()
+
+func _process(delta: float) -> void:
+    # Hair physics DOIT tourner dans _process, APRÈS l'AnimationPlayer
+    # (sinon l'animation écrase notre override)
+    if _debug_frame == 0:
+        print("[DIAG] _process() is running, calling _update_hair_physics")
     _update_hair_physics(delta)
 
 

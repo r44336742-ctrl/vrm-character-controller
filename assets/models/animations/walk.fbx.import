@@ -35,8 +35,7 @@ _subresources={
 "nodes": {
 "PATH:Skeleton3D": {
 "rest_pose/external_animation_library": null,
-"retarget/bone_map": Object(BoneMap,"resource_local_to_scene":false,"resource_name":"","profile":null,"bonemap":null,"script":null)
-
+"retarget/bone_map": null
 }
 }
 }
