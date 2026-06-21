@@ -1,9 +1,10 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform vec3 color_grass : source_color = vec3(0.01, 0.01, 0.012); // Herbe cendre/noire
-uniform vec3 color_dirt  : source_color = vec3(0.015, 0.01, 0.01); // Terre calcinée
-uniform vec3 color_rock  : source_color = vec3(0.005, 0.005, 0.01); // Roche obsidienne
+// Sol ardoise / dalle grise
+uniform vec3 color_grass : source_color = vec3(0.04, 0.04, 0.05); // Ardoise sombre
+uniform vec3 color_dirt  : source_color = vec3(0.06, 0.06, 0.07); // Dalle grise
+uniform vec3 color_rock  : source_color = vec3(0.03, 0.03, 0.04); // Roche sombre
 
 varying float world_y;
 
@@ -16,7 +17,7 @@ void fragment() {
     
     vec3 col = color_grass;
     
-    // Terre sur les pentes moyennes
+    // Dalle/terre sur les pentes moyennes
     col = mix(col, color_dirt, smoothstep(0.1, 0.25, slope));
     
     // Roche sur les pentes raides
@@ -25,13 +26,12 @@ void fragment() {
     // Forcer la roche si on descend bas (la falaise)
     col = mix(col, color_rock, smoothstep(-5.0, -15.0, world_y));
     
-    // Ajouter un peu de bruit pour la texture
-    // Un bruit simple basé sur les UVs/Position
+    // Grain de surface subtil
     vec2 p = UV * 150.0;
     float noise = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-    col *= mix(0.9, 1.1, noise); // Léger grain de surface
+    col *= mix(0.92, 1.08, noise);
     
     ALBEDO = col;
-    ROUGHNESS = 0.95;
+    ROUGHNESS = 0.92;
     METALLIC = 0.0;
 }

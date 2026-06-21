@@ -84,16 +84,16 @@ func _ready() -> void:
                         if child.name in HAIR_MESH_NAMES:
                             new_mat.shader = hair_shader
                             hair_shader_material = new_mat
-                            # Réglages gothiques pour les cheveux
-                            new_mat.set_shader_parameter("saturation", 0.2)
-                            new_mat.set_shader_parameter("tint_color", Color(0.4, 0.45, 0.6))
-                            new_mat.set_shader_parameter("darken_amount", 0.5)
+                            # Couleurs originales du VRM
+                            new_mat.set_shader_parameter("saturation", 1.0)
+                            new_mat.set_shader_parameter("tint_color", Color(1.0, 1.0, 1.0))
+                            new_mat.set_shader_parameter("darken_amount", 0.0)
                         else:
                             new_mat.shader = skin_shader
-                            # Réglages gothiques pour la peau/vêtements
-                            new_mat.set_shader_parameter("saturation", 0.3)
-                            new_mat.set_shader_parameter("tint_color", Color(0.55, 0.6, 0.75))
-                            new_mat.set_shader_parameter("darken_amount", 0.4)
+                            # Couleurs originales du VRM
+                            new_mat.set_shader_parameter("saturation", 1.0)
+                            new_mat.set_shader_parameter("tint_color", Color(1.0, 1.0, 1.0))
+                            new_mat.set_shader_parameter("darken_amount", 0.0)
                             
                         new_mat.set_shader_parameter("albedo_texture", albedo_tex)
                         
