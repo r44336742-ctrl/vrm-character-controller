@@ -78,30 +78,58 @@ func _ready() -> void:
 	fill_light.rotation_degrees = Vector3(-25, 150, 0) # SE → NW (opposé à la lune)
 	add_child(fill_light)
 	
-	# --- LUNE PHYSIQUE ---
+	# --- LUNE PHYSIQUE (shader avec cratères) ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
 	if dummy_moon:
 		dummy_moon.position = Vector3(-120, 90, -500)
-		dummy_moon.scale = Vector3(3, 3, 3)
-		var m_mat = dummy_moon.material_override as StandardMaterial3D
-		if m_mat:
-			m_mat.emission_energy_multiplier = 3.0
-			m_mat.emission = Color(0.7, 0.8, 1.0)
-			m_mat.albedo_color = Color(0.85, 0.9, 1.0)
+		dummy_moon.scale = Vector3(5, 5, 5) # Plus grande
+		var moon_shader = load("res://shaders/moon.gdshader")
+		if moon_shader:
+			var moon_mat = ShaderMaterial.new()
+			moon_mat.shader = moon_shader
+			moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
+			moon_mat.set_shader_parameter("glow_intensity", 3.5)
+			dummy_moon.material_override = moon_mat
+		else:
+			# Fallback
+			var m_mat = dummy_moon.material_override as StandardMaterial3D
+			if m_mat:
+				m_mat.emission_energy_multiplier = 3.0
+				m_mat.emission = Color(0.7, 0.8, 1.0)
+	
+	# --- HALO LUNAIRE (quad géant derrière la lune) ---
+	var halo = MeshInstance3D.new()
+	var halo_quad = QuadMesh.new()
+	halo_quad.size = Vector2(80, 80)
+	halo.mesh = halo_quad
+	var halo_mat = StandardMaterial3D.new()
+	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
+	halo_mat.emission_enabled = true
+	halo_mat.emission = Color(0.15, 0.2, 0.35)
+	halo_mat.emission_energy_multiplier = 1.5
+	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	halo.material_override = halo_mat
+	halo.position = Vector3(-120, 90, -502) # Juste derrière la lune
+	get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---
 	_generate_stars()
 	
-	# --- LAMPES DE RUE (allée du manoir) ---
+	# --- LAMPES DE RUE ---
 	_generate_lanterns()
 
 func _generate_stars() -> void:
-	var star_mat = StandardMaterial3D.new()
-	star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	star_mat.emission_enabled = true
-	star_mat.emission = Color(0.8, 0.85, 1.0)
-	star_mat.emission_energy_multiplier = 2.0
-	star_mat.albedo_color = Color(0.9, 0.9, 1.0)
+	# 3 types de couleur d'étoiles
+	var star_colors = [
+		Color(0.9, 0.92, 1.0),    # Blanc-bleu (courantes)
+		Color(0.6, 0.75, 1.0),    # Bleu vif (chaudes B)
+		Color(1.0, 0.9, 0.75),    # Blanc-chaud (type G/K)
+	]
+	
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 42
 	
 	var star_mesh = SphereMesh.new()
 	star_mesh.radius = 0.15
@@ -109,27 +137,46 @@ func _generate_stars() -> void:
 	star_mesh.radial_segments = 4
 	star_mesh.rings = 2
 	
-	var rng = RandomNumberGenerator.new()
-	rng.seed = 42
-	
-	for i in range(120):
+	for i in range(200): # Plus d'étoiles
 		var mesh_inst = MeshInstance3D.new()
 		mesh_inst.mesh = star_mesh
-		mesh_inst.material_override = star_mat
 		
-		# Sphère lointaine autour de la caméra
+		# Matériau individuel pour variation de couleur/intensité
+		var mat = StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.emission_enabled = true
+		
+		# Couleur aléatoire parmi les 3 types
+		var color_idx = rng.randi_range(0, 2)
+		var star_col = star_colors[color_idx]
+		mat.emission = star_col
+		mat.albedo_color = star_col
+		
+		# 3 tiers de luminosité (quelques brillantes, beaucoup de faibles)
+		var brightness_roll = rng.randf()
+		if brightness_roll < 0.05:
+			mat.emission_energy_multiplier = rng.randf_range(4.0, 6.0) # Très brillante
+			var bs = rng.randf_range(2.0, 3.0)
+			mesh_inst.scale = Vector3(bs, bs, bs)
+		elif brightness_roll < 0.25:
+			mat.emission_energy_multiplier = rng.randf_range(2.0, 3.5) # Moyenne
+			var ms = rng.randf_range(1.0, 2.0)
+			mesh_inst.scale = Vector3(ms, ms, ms)
+		else:
+			mat.emission_energy_multiplier = rng.randf_range(0.8, 1.5) # Faible
+			var ss = rng.randf_range(0.3, 0.8)
+			mesh_inst.scale = Vector3(ss, ss, ss)
+		
+		mesh_inst.material_override = mat
+		
 		var theta = rng.randf_range(0, TAU)
-		var phi = rng.randf_range(0.05, 0.7) # Seulement au-dessus de l'horizon
+		var phi = rng.randf_range(0.05, 0.75)
 		var r = 800.0
 		mesh_inst.position = Vector3(
 			r * sin(phi) * cos(theta),
 			r * cos(phi),
 			r * sin(phi) * sin(theta)
 		)
-		
-		# Variation de taille
-		var s = rng.randf_range(0.5, 1.5)
-		mesh_inst.scale = Vector3(s, s, s)
 		
 		add_child(mesh_inst)
 
