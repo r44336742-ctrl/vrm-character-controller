@@ -90,56 +90,86 @@ func _update_hair_physics(delta: float) -> void:
     var skel_xf_inv = skel_xf.affine_inverse()
     var wind_world = WindSystem.get_wind_at(global_position)
     var dt2 = delta * delta
+    var t = Time.get_ticks_msec() * 0.001  # temps en secondes
 
     for idx in range(_hair_bone_indices.size()):
         var bone_idx   = _hair_bone_indices[idx]
         var parent_idx = _hair_parent_indices[idx]
-        var rest_dir   = _hair_rest_dirs[idx]        # direction repos en parent-local space
-        var bone_len   = minf(_hair_bone_lengths[idx], 0.18)  # cap 18cm pour ampleur visible
+        var rest_dir   = _hair_rest_dirs[idx]
+        var bname      = skel.get_bone_name(bone_idx)
+        var is_hair    = "Hair" in bname
 
-        # ── 1. Racine via gp.origin (persistent=true garde la pos correcte) ──
-        var gp = skel.get_bone_global_pose(bone_idx)
-        var root_world = skel_xf * gp.origin
-
-        # Direction de repos en world-space (via parent animé)
         var parent_gp = skel.get_bone_global_pose(parent_idx)
+        var gp        = skel.get_bone_global_pose(bone_idx)
         var rest_dir_skel = (parent_gp.basis * rest_dir).normalized()
-        var rest_dir_world = (skel_xf.basis * rest_dir_skel).normalized()
-        var rest_tail_world = root_world + rest_dir_world * bone_len
 
-        # ── 2. Verlet ──
-        var cur = _hair_tail_cur[idx]
-        var prv = _hair_tail_prv[idx]
-        var vel = (cur - prv) * (1.0 - H_DRAG)
-        var gravity_f = Vector3(0.0, -H_GRAVITY, 0.0) * dt2
-        var wind_f    = wind_world * dt2 * H_WIND_MUL
-        var stiff_f   = (rest_tail_world - cur) * H_STIFF
-        var next = cur + vel + gravity_f + wind_f + stiff_f
-
-        # ── 3. Contrainte longueur ──
-        var to_next = next - root_world
-        if to_next.length() > 0.001:
-            next = root_world + to_next.normalized() * bone_len
-        _hair_tail_prv[idx] = cur
-        _hair_tail_cur[idx] = next
-
-        # ── 4. Rotation en skeleton-space (comme v1 qui marchait) ──
-        # Convertir la direction cible en skel-space
-        var desired_dir_skel = (skel_xf_inv.basis * (next - root_world)).normalized()
-
-        # Rotation qui amène rest_dir_skel → desired_dir_skel
-        var d = rest_dir_skel.dot(desired_dir_skel)
         var rot: Quaternion
-        if d < -0.9999:
-            var perp = rest_dir_skel.cross(Vector3.UP)
-            if perp.length() < 0.001:
-                perp = rest_dir_skel.cross(Vector3.RIGHT)
-            rot = Quaternion(perp.normalized(), PI)
-        else:
-            rot = Quaternion(rest_dir_skel, desired_dir_skel)
 
-        # Application: rot (skel-space) * parent_basis = nouvelle orientation de l'os
-        # Origin inchangé depuis gp (position correcte grâce à persistent=true)
+        if is_hair:
+            # ══════════════════════════════════════════════════════════
+            # CHEVEUX : oscillation sinusoïdale procédurale (faux vent)
+            # 3 fréquences superposées + offset de phase par os
+            # Résultat : mouvement organique, naturel, toujours visible
+            # ══════════════════════════════════════════════════════════
+            # Phase unique par os (ratio d'or → distribution maximale)
+            var phase = float(idx) * 2.39996  # 2π * golden_ratio ≈ 2.4
+
+            # Trois couches d'oscillation :
+            var sway   = sin(t * 0.7  + phase)         * 0.18  # balancement lent
+            var flutter = sin(t * 2.1  + phase * 1.3)  * 0.08  # flutter naturel
+            var micro   = sin(t * 4.7  + phase * 2.1)  * 0.03  # micro-vibration
+
+            # Biais directionnel du vent (incline les cheveux dans le sens du vent)
+            var wind_dir_skel = (skel_xf_inv.basis * wind_world).normalized()
+            var wind_bias = wind_world.length() * 0.004 * sin(t * 0.4 + phase * 0.5)
+
+            var total_angle = sway + flutter + micro
+
+            # Axe latéral : perpendiculaire au brin + composante vent
+            var lateral_axis = rest_dir_skel.cross(Vector3.UP)
+            if lateral_axis.length() < 0.01:
+                lateral_axis = rest_dir_skel.cross(Vector3.RIGHT)
+            lateral_axis = lateral_axis.normalized()
+
+            # Axe de vent projeté perpendiculairement au brin
+            var wind_axis = rest_dir_skel.cross(wind_dir_skel)
+            if wind_axis.length() < 0.01:
+                wind_axis = lateral_axis
+            wind_axis = wind_axis.normalized()
+
+            # Rotation combinée : oscillation + biais vent
+            var rot_sway = Quaternion(lateral_axis, total_angle)
+            var rot_wind = Quaternion(wind_axis, wind_bias)
+            rot = rot_wind * rot_sway
+
+        else:
+            # ══════════════════════════════════════════════════════════
+            # JUPE / AUTRES : verlet physique (déjà parfait selon user)
+            # ══════════════════════════════════════════════════════════
+            var bone_len = minf(_hair_bone_lengths[idx], 0.18)
+            var root_world = skel_xf * gp.origin
+            var rest_dir_world = (skel_xf.basis * rest_dir_skel).normalized()
+            var rest_tail_world = root_world + rest_dir_world * bone_len
+
+            var cur = _hair_tail_cur[idx]
+            var prv = _hair_tail_prv[idx]
+            var vel = (cur - prv) * (1.0 - H_DRAG)
+            var next = cur + vel + Vector3(0, -H_GRAVITY, 0)*dt2 + wind_world*dt2*H_WIND_MUL + (rest_tail_world - cur)*H_STIFF
+            var to_next = next - root_world
+            if to_next.length() > 0.001:
+                next = root_world + to_next.normalized() * bone_len
+            _hair_tail_prv[idx] = cur
+            _hair_tail_cur[idx] = next
+
+            var desired_dir_skel = (skel_xf_inv.basis * (next - root_world)).normalized()
+            var d = rest_dir_skel.dot(desired_dir_skel)
+            if d < -0.9999:
+                var perp = rest_dir_skel.cross(Vector3.UP)
+                if perp.length() < 0.001: perp = rest_dir_skel.cross(Vector3.RIGHT)
+                rot = Quaternion(perp.normalized(), PI)
+            else:
+                rot = Quaternion(rest_dir_skel, desired_dir_skel)
+
         var new_basis = Basis(rot) * parent_gp.basis
         skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, gp.origin), 1.0, true)
 
