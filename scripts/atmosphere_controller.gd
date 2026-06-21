@@ -6,8 +6,8 @@ var moon_light: DirectionalLight3D
 func _ready() -> void:
 	# --- CIEL ---
 	var sky_mat = ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.01, 0.02, 0.06)       # Bleu nuit visible
-	sky_mat.sky_horizon_color = Color(0.04, 0.06, 0.14)    # Horizon bleu plus clair
+	sky_mat.sky_top_color = Color(0.01, 0.02, 0.06)
+	sky_mat.sky_horizon_color = Color(0.04, 0.06, 0.14)
 	sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.01)
 	sky_mat.ground_horizon_color = Color(0.02, 0.03, 0.08)
 	sky_mat.sky_energy_multiplier = 0.5
@@ -19,16 +19,16 @@ func _ready() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	
-	# --- AMBIENT : "Day for Night" (clé de toute la visibilité) ---
+	# --- AMBIENT : "Day for Night" ---
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.08, 0.12, 0.25) # Bleu nuit cinéma
-	env.ambient_light_energy = 0.5 # Assez fort pour tout voir
+	env.ambient_light_color = Color(0.08, 0.12, 0.25)
+	env.ambient_light_energy = 0.5
 	
 	# --- BROUILLARD ---
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	env.fog_density = 0.003
-	env.fog_light_color = Color(0.03, 0.05, 0.12) # Bleu nuit
+	env.fog_light_color = Color(0.03, 0.05, 0.12)
 	
 	env.volumetric_fog_enabled = false
 	
@@ -37,23 +37,30 @@ func _ready() -> void:
 	env.tonemap_exposure = 1.1
 	env.tonemap_white = 1.0
 	
+	# Glow : halo autour de la lune et des sources lumineuses
 	env.glow_enabled = true
-	env.glow_intensity = 0.5
-	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.0
+	env.glow_intensity = 0.8
+	env.glow_bloom = 0.15  # Plus de bloom pour le halo lunaire
+	env.glow_hdr_threshold = 0.8 # Attrape la lune + reflets
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 0.85
 	env.adjustment_contrast = 1.1
 	
+	# --- SSAO : Occlusion ambiante pour la profondeur ---
+	env.ssao_enabled = true
+	env.ssao_radius = 2.0
+	env.ssao_intensity = 1.5
+	
 	world_env = WorldEnvironment.new()
 	world_env.environment = env
 	add_child(world_env)
 	
-	# --- LUNE : Directionnelle forte ---
+	# --- LUNE : Directionnelle ---
 	moon_light = DirectionalLight3D.new()
-	moon_light.light_energy = 1.2 # Plus forte pour éclairer le terrain/manoir
-	moon_light.light_color = Color(0.6, 0.75, 1.0) # Bleu lune
+	moon_light.light_energy = 1.2
+	moon_light.light_color = Color(0.6, 0.75, 1.0)
 	moon_light.shadow_enabled = true
 	moon_light.shadow_bias = 0.02
 	moon_light.shadow_normal_bias = 1.0
@@ -71,3 +78,96 @@ func _ready() -> void:
 			m_mat.emission_energy_multiplier = 3.0
 			m_mat.emission = Color(0.7, 0.8, 1.0)
 			m_mat.albedo_color = Color(0.85, 0.9, 1.0)
+	
+	# --- ÉTOILES ---
+	_generate_stars()
+	
+	# --- LAMPES DE RUE (allée du manoir) ---
+	_generate_lanterns()
+
+func _generate_stars() -> void:
+	var star_mat = StandardMaterial3D.new()
+	star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_mat.emission_enabled = true
+	star_mat.emission = Color(0.8, 0.85, 1.0)
+	star_mat.emission_energy_multiplier = 2.0
+	star_mat.albedo_color = Color(0.9, 0.9, 1.0)
+	
+	var star_mesh = SphereMesh.new()
+	star_mesh.radius = 0.15
+	star_mesh.height = 0.3
+	star_mesh.radial_segments = 4
+	star_mesh.rings = 2
+	
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 42
+	
+	for i in range(120):
+		var mesh_inst = MeshInstance3D.new()
+		mesh_inst.mesh = star_mesh
+		mesh_inst.material_override = star_mat
+		
+		# Sphère lointaine autour de la caméra
+		var theta = rng.randf_range(0, TAU)
+		var phi = rng.randf_range(0.05, 0.7) # Seulement au-dessus de l'horizon
+		var r = 800.0
+		mesh_inst.position = Vector3(
+			r * sin(phi) * cos(theta),
+			r * cos(phi),
+			r * sin(phi) * sin(theta)
+		)
+		
+		# Variation de taille
+		var s = rng.randf_range(0.5, 1.5)
+		mesh_inst.scale = Vector3(s, s, s)
+		
+		add_child(mesh_inst)
+
+func _generate_lanterns() -> void:
+	# Lanternes le long de l'allée (Z=20 à Z=55, de chaque côté)
+	var lantern_positions = [
+		Vector3(-4.5, 0, 25), Vector3(4.5, 0, 25),
+		Vector3(-4.5, 0, 35), Vector3(4.5, 0, 35),
+		Vector3(-4.5, 0, 45), Vector3(4.5, 0, 45),
+	]
+	
+	var pole_mat = StandardMaterial3D.new()
+	pole_mat.albedo_color = Color(0.04, 0.04, 0.05)
+	pole_mat.metallic = 0.8
+	pole_mat.roughness = 0.4
+	
+	for pos in lantern_positions:
+		# Poteau
+		var pole = CSGCylinder3D.new()
+		pole.radius = 0.08
+		pole.height = 3.5
+		pole.position = pos + Vector3(0, 1.75, 0)
+		pole.material = pole_mat
+		pole.use_collision = true
+		get_parent().get_node("EnvironmentAssets").add_child(pole)
+		
+		# Globe lumineux
+		var globe = MeshInstance3D.new()
+		var sphere = SphereMesh.new()
+		sphere.radius = 0.2
+		sphere.height = 0.4
+		globe.mesh = sphere
+		
+		var glow_mat = StandardMaterial3D.new()
+		glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow_mat.emission_enabled = true
+		glow_mat.emission = Color(0.3, 0.5, 0.9) # Bleu pâle
+		glow_mat.emission_energy_multiplier = 3.0
+		glow_mat.albedo_color = Color(0.4, 0.6, 1.0)
+		globe.material_override = glow_mat
+		globe.position = pos + Vector3(0, 3.7, 0)
+		get_parent().get_node("EnvironmentAssets").add_child(globe)
+		
+		# Lumière ponctuelle
+		var light = OmniLight3D.new()
+		light.light_color = Color(0.3, 0.5, 0.9)
+		light.light_energy = 0.6
+		light.omni_range = 8.0
+		light.shadow_enabled = false # Économie de perf
+		light.position = pos + Vector3(0, 3.7, 0)
+		get_parent().get_node("EnvironmentAssets").add_child(light)

@@ -2,11 +2,11 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // Océan bleu sombre
-uniform vec3 albedo : source_color = vec3(0.02, 0.04, 0.10); // Bleu sombre visible
+uniform vec3 albedo : source_color = vec3(0.02, 0.04, 0.10);
 uniform float metallic = 0.6;
 uniform float roughness = 0.15;
 
-// Normal Maps générées procéduralement
+// Normal Maps
 uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
@@ -14,13 +14,17 @@ uniform vec2 scroll_a = vec2(0.02, 0.02);
 uniform vec2 scroll_b = vec2(-0.015, 0.01);
 uniform float wave_scale = 0.08;
 
-// Houle de fond (vagues plus fortes + 3ème vague croisée)
+// Houle de fond (3 vagues pour du relief)
 uniform vec4 wave1 = vec4(1.0, 0.5, 0.12, 50.0);
 uniform vec4 wave2 = vec4(0.8, 1.2, 0.08, 30.0);
-uniform vec4 wave3 = vec4(-0.5, 1.0, 0.06, 20.0); // Vague croisée pour casser la répétition
+uniform vec4 wave3 = vec4(-0.5, 1.0, 0.06, 20.0);
+
+// Écume blanche sur les crêtes
+uniform float foam_threshold = 0.6;
 
 varying vec2 uv_a;
 varying vec2 uv_b;
+varying float wave_height;
 
 vec3 get_gerstner_wave(vec4 wave, vec3 p) {
     float steepness = wave.z;
@@ -47,6 +51,7 @@ void vertex() {
     p_offset += get_gerstner_wave(wave1, VERTEX);
     p_offset += get_gerstner_wave(wave2, VERTEX);
     p_offset += get_gerstner_wave(wave3, VERTEX);
+    wave_height = p_offset.y;
     VERTEX += p_offset;
 }
 
@@ -54,12 +59,23 @@ void fragment() {
     vec3 n_a = texture(normalmap_a, uv_a).rgb;
     vec3 n_b = texture(normalmap_b, uv_b).rgb;
     
-    ALBEDO = albedo;
-    METALLIC = metallic;
-    ROUGHNESS = roughness;
-    NORMAL_MAP = mix(n_a, n_b, 0.5);
-    NORMAL_MAP_DEPTH = 1.5;
+    // Couleur de base
+    vec3 ocean_col = albedo;
     
-    // Auto-éclairage bleu subtil pour rester visible dans le noir total
-    EMISSION = vec3(0.005, 0.01, 0.03);
+    // Variation de profondeur (zones plus profondes = plus sombres)
+    float depth_var = smoothstep(-0.5, 0.5, wave_height);
+    ocean_col = mix(ocean_col * 0.6, ocean_col * 1.3, depth_var);
+    
+    // Écume blanche sur les crêtes des vagues
+    float foam = smoothstep(foam_threshold, foam_threshold + 0.3, wave_height);
+    ocean_col = mix(ocean_col, vec3(0.15, 0.2, 0.3), foam * 0.4);
+    
+    ALBEDO = ocean_col;
+    METALLIC = metallic;
+    ROUGHNESS = mix(roughness, 0.6, foam * 0.5); // Écume moins réfléchissante
+    NORMAL_MAP = mix(n_a, n_b, 0.5);
+    NORMAL_MAP_DEPTH = 1.8;
+    
+    // Auto-éclairage bleu subtil
+    EMISSION = vec3(0.005, 0.01, 0.03) + vec3(0.01, 0.015, 0.025) * depth_var;
 }
