@@ -104,17 +104,18 @@ func _update_vrm_wind_physics() -> void:
         var vrm_sec = sec_nodes[0]
         var global_wind = WindSystem.get_wind_at(global_position)
         var local_wind = character_model.global_transform.basis.inverse() * global_wind
-        var force = local_wind * 5.0
+        # Force du vent à 20x pour s'assurer que le mouvement soit visible
+        var force = local_wind * 20.0
         
-        # Bypass 1: Écrire directement sur le parent VRM toplevel (si is_child_of_vrm)
+        # Bypass 1: parent VRM toplevel
         if vrm_sec.is_child_of_vrm:
             vrm_sec.get_parent().springbone_add_force = force
         
-        # Bypass 2: Écrire directement sur le VRMSecondary
+        # Bypass 2: VRMSecondary + flag
         vrm_sec.springbone_add_force = force
         vrm_sec.modify_gravity = true
         
-        # Bypass 3: Écrire directement sur CHAQUE runtime state
+        # Bypass 3: chaque runtime state directement
         for sb in vrm_sec.spring_bones_internal:
             sb.add_force = force
 
@@ -286,10 +287,10 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
                     bone.set("stiffness_scale", 0.8)
                     bone.set("gravity_scale", 1.0)
                 elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
-                    # Cheveux : faible rigidité + gravité normale = pendule naturel + vent
-                    bone.set("drag_force_scale", 0.15)
-                    bone.set("stiffness_scale", 0.3)
-                    bone.set("gravity_scale", 1.0)
+                    # Cheveux : très faible drag = oscille librement, stiffness basse = souple
+                    bone.set("drag_force_scale", 0.05)
+                    bone.set("stiffness_scale", 0.08)
+                    bone.set("gravity_scale", 1.5)
                 else:
                     # Autres (accessoires)
                     bone.set("drag_force_scale", 0.4)

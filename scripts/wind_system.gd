@@ -1,7 +1,7 @@
 extends Node
 
 # --- SYSTÈME DE VENT GLOBAL ---
-var base_wind_vector: Vector3 = Vector3(-1.5, 0.5, -0.5) * 3.0
+var base_wind_vector: Vector3 = Vector3(-1.5, 0.3, -0.5) * 8.0
 var wind_vector: Vector3 = Vector3.ZERO
 var current_gust_multiplier: float = 1.0
 

@@ -14,7 +14,7 @@ const vrm_collider = preload("./vrm_collider.gd")
 @export var joint_nodes: PackedStringArray
 
 @export_group("Spring Settings")
-@export_range(0, 10, 0.001, "or_greater") var stiffness_scale: float = 1.0
+@export_range(0, 10, 0.001, "or_greater") var stiffness_scale: float = 0.5
 
 @export_range(0, 3, 0.001, "or_greater") var drag_force_scale: float = 1.0
 
@@ -100,7 +100,7 @@ class SpringBoneRuntimeState:
 			var pos: Vector3
 			if joint_nodes[id + 1].is_empty():
 				var delta: Vector3 = skel.get_bone_rest(bone_idx).origin
-				pos = delta.normalized() * 0.15  # Extended from 0.07 for visible hair sway
+				pos = delta.normalized() * 0.25  # 25cm pendulum arm for visible sway
 			else:
 				var first_child: int = skel.find_bone(joint_nodes[id + 1])
 				var local_position: Vector3 = skel.get_bone_rest(first_child).origin
