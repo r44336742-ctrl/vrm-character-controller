@@ -15,8 +15,16 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var anim_player: AnimationPlayer = null
 var character_model: Node = null
 
-# Références pour la physique VRM
-var vrm_spring_bones: Array = []
+# Références pour la physique custom des cheveux
+var _hair_skeleton: Skeleton3D = null
+var _hair_bone_indices: Array[int] = []
+var _hair_bone_tails: Array[Vector3] = []  # position tail courante (world space)
+var _hair_bone_prev_tails: Array[Vector3] = []  # position tail precedente
+var _hair_initialized: bool = false
+const HAIR_STIFFNESS: float = 0.05   # Faible = plus souple
+const HAIR_DRAG: float = 0.07        # Faible = oscille longtemps
+const HAIR_GRAVITY: float = 4.0      # Pesanteur
+const HAIR_LENGTH: float = 0.25      # Longueur du pendule en metres
 
 func _ready() -> void:
     add_to_group("player") # Requis pour Atmosphere et Particules
@@ -42,7 +50,7 @@ func _ready() -> void:
         _strip_root_motion("run")
 
         if skeleton:
-            _setup_hair_physics(skeleton)
+            _init_hair_physics(skeleton)
 
     # Lancer l'animation Idle par défaut
     if anim_player and anim_player.has_animation("idle"):
@@ -94,30 +102,62 @@ func _physics_process(delta: float) -> void:
         velocity.z = lerp(velocity.z, 0.0, friction * delta)
 
     move_and_slide()
-    
-    # Mise à jour de la physique VRM avec le vent
-    _update_vrm_wind_physics()
+    _update_hair_physics(delta)
 
-func _update_vrm_wind_physics() -> void:
-    var sec_nodes = character_model.find_children("*", "VRMSecondary", true)
-    if sec_nodes.size() > 0:
-        var vrm_sec = sec_nodes[0]
-        var global_wind = WindSystem.get_wind_at(global_position)
-        var local_wind = character_model.global_transform.basis.inverse() * global_wind
-        # Force du vent à 20x pour s'assurer que le mouvement soit visible
-        var force = local_wind * 20.0
-        
-        # Bypass 1: parent VRM toplevel
-        if vrm_sec.is_child_of_vrm:
-            vrm_sec.get_parent().springbone_add_force = force
-        
-        # Bypass 2: VRMSecondary + flag
-        vrm_sec.springbone_add_force = force
-        vrm_sec.modify_gravity = true
-        
-        # Bypass 3: chaque runtime state directement
-        for sb in vrm_sec.spring_bones_internal:
-            sb.add_force = force
+func _init_hair_physics(skeleton: Skeleton3D) -> void:
+    _hair_skeleton = skeleton
+    _hair_bone_indices.clear()
+    _hair_bone_tails.clear()
+    _hair_bone_prev_tails.clear()
+    for i in range(skeleton.get_bone_count()):
+        var bname = skeleton.get_bone_name(i)
+        # Cibler les os de cheveux ET de jupe
+        if "Hair" in bname or "Skirt" in bname:
+            _hair_bone_indices.append(i)
+            # Position tail initiale = position globale de l'os + direction vers le bas
+            var gp = skeleton.get_bone_global_pose(i)
+            var world_origin = skeleton.global_transform * gp.origin
+            var world_tail = world_origin + Vector3(0, -HAIR_LENGTH, 0)
+            _hair_bone_tails.append(world_tail)
+            _hair_bone_prev_tails.append(world_tail)
+    _hair_initialized = true
+    print("[HairPhysics] Initialized with ", _hair_bone_indices.size(), " bones")
+
+func _update_hair_physics(delta: float) -> void:
+    if not _hair_initialized or _hair_skeleton == null:
+        return
+    var wind = WindSystem.get_wind_at(global_position)
+    for idx in range(_hair_bone_indices.size()):
+        var bone_idx = _hair_bone_indices[idx]
+        # Position globale de l'os racine (suit l'animation)
+        var gp = _hair_skeleton.get_bone_global_pose(bone_idx)
+        var bone_world = _hair_skeleton.global_transform * gp.origin
+        # Verlet integration
+        var cur = _hair_bone_tails[idx]
+        var prv = _hair_bone_prev_tails[idx]
+        var velocity = (cur - prv) * (1.0 - HAIR_DRAG)
+        var gravity_force = Vector3(0, -HAIR_GRAVITY, 0) * delta * delta
+        var wind_force = wind * delta * delta * 0.8
+        # Stiffness : force vers la position de repos (bone_world + down)
+        var rest_pos = bone_world + Vector3(0, -HAIR_LENGTH, 0)
+        var stiffness_force = (rest_pos - cur) * HAIR_STIFFNESS
+        var next = cur + velocity + gravity_force + wind_force + stiffness_force
+        # Contrainte : longueur fixe depuis l'os racine
+        var dir = (next - bone_world).normalized()
+        next = bone_world + dir * HAIR_LENGTH
+        _hair_bone_prev_tails[idx] = cur
+        _hair_bone_tails[idx] = next
+        # Convertir la direction tail->bone en rotation pour l'os
+        var local_next = _hair_skeleton.global_transform.affine_inverse() * next
+        var local_bone = gp.origin
+        var local_dir = (local_next - local_bone).normalized()
+        # Calculer la rotation qui amene l'axe down vers local_dir
+        var bone_name = _hair_skeleton.get_bone_name(bone_idx)
+        var rest_dir = Vector3(0, -1, 0)  # Direction repos locale
+        var rot = Quaternion(rest_dir, local_dir)
+        var new_pose = gp
+        new_pose.basis = Basis(rot) * gp.basis
+        _hair_skeleton.set_bone_global_pose_override(bone_idx, new_pose, 1.0, true)
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -261,40 +301,4 @@ func _find_anim_player(node: Node) -> AnimationPlayer:
         if res: return res
     return null
 
-func _setup_hair_physics(skeleton: Skeleton3D) -> void:
-    # Recherche du nœud VRMSecondary
-    var sec_nodes = character_model.find_children("*", "VRMSecondary", true)
-    if sec_nodes.size() > 0:
-        var vrm_sec = sec_nodes[0]
-        
-        if "spring_bones" in vrm_sec:
-            for bone in vrm_sec.spring_bones:
-                if not bone: continue
-                
-                var name = bone.resource_name.to_lower()
-                if name == "" and bone.joint_nodes.size() > 0:
-                    name = bone.joint_nodes[0].to_lower()
-                
-                # BREAKTHROUGH: Les modèles VRoid "baskent" parfois la physique dans des tableaux par os.
-                # Il FAUT vider ces tableaux pour que nos modificateurs globaux soient pris en compte !
-                bone.set("stiffness_force", PackedFloat64Array())
-                bone.set("gravity_dir", PackedVector3Array())
-                bone.set("gravity_power", PackedFloat64Array())
-                
-                if "skirt" in name or "dress" in name:
-                    # Robe
-                    bone.set("drag_force_scale", 0.6)
-                    bone.set("stiffness_scale", 0.8)
-                    bone.set("gravity_scale", 1.0)
-                elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
-                    # Cheveux : très faible drag = oscille librement, stiffness basse = souple
-                    bone.set("drag_force_scale", 0.05)
-                    bone.set("stiffness_scale", 0.08)
-                    bone.set("gravity_scale", 1.5)
-                else:
-                    # Autres (accessoires)
-                    bone.set("drag_force_scale", 0.4)
-                    bone.set("stiffness_scale", 0.5)
-                    bone.set("gravity_scale", 0.5)
-                    
-                vrm_spring_bones.append(bone)
+
