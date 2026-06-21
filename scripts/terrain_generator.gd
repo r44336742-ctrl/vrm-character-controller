@@ -81,11 +81,14 @@ func get_height(px: float, pz: float) -> float:
     # Bruit de base (collines légères)
     var h = noise.get_noise_2d(px, pz) * 6.0 
     
-    # Zone plate pour le manoir et le jardin (autour de Z = -20 à Z = 20)
-    var dist_to_center = Vector2(px, pz + 10.0).length()
-    if dist_to_center < 50.0:
-        var blend = smoothstep(30.0, 50.0, dist_to_center)
-        h = lerp(0.0, h, blend) # Aplanir vers 0
+    # Zone plate en forme de gélule pour le domaine (manoir + allée + portail)
+    # L'axe central va de Z = -30 (derrière manoir) à Z = 50 (près du portail)
+    var closest_z = clamp(pz, -30.0, 50.0)
+    var dist_to_estate = Vector2(px, pz - closest_z).length()
+    
+    if dist_to_estate < 40.0:
+        var blend = smoothstep(20.0, 40.0, dist_to_estate)
+        h = lerp(0.0, h, blend) # Aplanir vers 0 (Y=0)
     
     # Falaise plongeante vers l'océan
     if pz < cliff_z_start:
