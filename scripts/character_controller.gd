@@ -137,6 +137,11 @@ func _physics_process(delta: float) -> void:
         if anim_player and anim_player.has_animation("walk"):
             if anim_player.current_animation != "walk":
                 anim_player.play("walk", 0.2)
+        
+        # Son de pas
+        var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
+        if audio_mgr:
+            audio_mgr.start_walking()
     else:
         # FRICTION : Le personnage glisse légèrement pour s'arrêter en douceur
         velocity.x = lerp(velocity.x, 0.0, friction * delta)
@@ -145,6 +150,11 @@ func _physics_process(delta: float) -> void:
         if anim_player and anim_player.has_animation("idle"):
             if anim_player.current_animation != "idle":
                 anim_player.play("idle", 0.2)
+        
+        # Arrêt du son de pas
+        var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
+        if audio_mgr:
+            audio_mgr.stop_walking()
 
     move_and_slide()
     

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://cspsl8b4i2agw"]
+[gd_scene load_steps=17 format=3 uid="uid://cspsl8b4i2agw"]
 
 [ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
 [ext_resource type="Script" path="res://scripts/hair_weight_painter.gd" id="3_byefy"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terr"]
 [ext_resource type="Script" path="res://scripts/fps_counter.gd" id="6_fps"]
 [ext_resource type="Script" path="res://scripts/ocean_generator.gd" id="7_ocean"]
+[ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_Moon"]
 emission_enabled = true
@@ -196,17 +197,35 @@ material = SubResource("Mat_Stone")
 [node name="WindowL" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 1, 0)
 operation = 2
-size = Vector3(2, 3, 2)
+size = Vector3(1.8, 2.8, 2)
+
+[node name="WindowLArch" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -8, 2.4, 0)
+operation = 2
+radius = 0.9
+height = 2.0
 
 [node name="WindowR" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, 0)
 operation = 2
-size = Vector3(2, 3, 2)
+size = Vector3(1.8, 2.8, 2)
+
+[node name="WindowRArch" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 8, 2.4, 0)
+operation = 2
+radius = 0.9
+height = 2.0
 
 [node name="Door" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 operation = 2
 size = Vector3(3, 4, 2)
+
+[node name="DoorArch" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0)
+operation = 2
+radius = 1.5
+height = 2.0
 
 [node name="BackWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -7)
@@ -230,6 +249,88 @@ material = SubResource("Mat_Stone")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.5, 0)
 use_collision = true
 size = Vector3(32, 1, 17)
+material = SubResource("Mat_DarkStone")
+
+[node name="TowerFL" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 7, 7)
+use_collision = true
+radius = 2.5
+height = 14.0
+material = SubResource("Mat_Stone")
+
+[node name="TowerFR" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 7, 7)
+use_collision = true
+radius = 2.5
+height = 14.0
+material = SubResource("Mat_Stone")
+
+[node name="TowerBL" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 7, -7)
+use_collision = true
+radius = 2.5
+height = 14.0
+material = SubResource("Mat_Stone")
+
+[node name="TowerBR" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 7, -7)
+use_collision = true
+radius = 2.5
+height = 14.0
+material = SubResource("Mat_Stone")
+
+[node name="TowerCapFL" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 14.5, 7)
+radius = 3.0
+height = 1.0
+material = SubResource("Mat_DarkStone")
+
+[node name="TowerCapFR" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 14.5, 7)
+radius = 3.0
+height = 1.0
+material = SubResource("Mat_DarkStone")
+
+[node name="TowerCapBL" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 14.5, -7)
+radius = 3.0
+height = 1.0
+material = SubResource("Mat_DarkStone")
+
+[node name="TowerCapBR" type="CSGCylinder3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 14.5, -7)
+radius = 3.0
+height = 1.0
+material = SubResource("Mat_DarkStone")
+
+[node name="ChimneyL" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 13, 0)
+use_collision = true
+size = Vector3(1.5, 5, 1.5)
+material = SubResource("Mat_DarkStone")
+
+[node name="ChimneyR" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 13, 0)
+use_collision = true
+size = Vector3(1.5, 5, 1.5)
+material = SubResource("Mat_DarkStone")
+
+[node name="Stair1" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 9)
+use_collision = true
+size = Vector3(6, 0.3, 1.5)
+material = SubResource("Mat_DarkStone")
+
+[node name="Stair2" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 10)
+use_collision = true
+size = Vector3(5, 0.3, 1.5)
+material = SubResource("Mat_DarkStone")
+
+[node name="Stair3" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 11)
+use_collision = true
+size = Vector3(4, 0.3, 1.5)
 material = SubResource("Mat_DarkStone")
 
 [node name="JardinArriere" type="Node3D" parent="EnvironmentAssets"]
@@ -276,6 +377,9 @@ script = ExtResource("3_rupic")
 
 [node name="AshParticles" type="GPUParticles3D" parent="."]
 script = ExtResource("4_lhi2p")
+
+[node name="AudioManager" type="Node" parent="."]
+script = ExtResource("8_audio")
 
 [node name="UI" type="CanvasLayer" parent="."]
 

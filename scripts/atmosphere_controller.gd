@@ -63,10 +63,10 @@ func _ready() -> void:
 	# --- LUNE PHYSIQUE ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
 	if dummy_moon:
-		dummy_moon.position = Vector3(-80, 60, -200)
-		dummy_moon.scale = Vector3(12, 12, 12)
+		dummy_moon.position = Vector3(-120, 90, -500)
+		dummy_moon.scale = Vector3(3, 3, 3)
 		var m_mat = dummy_moon.material_override as StandardMaterial3D
 		if m_mat:
-			m_mat.emission_energy_multiplier = 6.0
+			m_mat.emission_energy_multiplier = 3.0
 			m_mat.emission = Color(0.7, 0.8, 1.0)
 			m_mat.albedo_color = Color(0.85, 0.9, 1.0)

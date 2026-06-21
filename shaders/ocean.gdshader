@@ -1,10 +1,10 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-// L'Océan d'encre noire
-uniform vec3 albedo : source_color = vec3(0.005, 0.005, 0.01); // Presque noir
-uniform float metallic = 1.0; // Miroir parfait
-uniform float roughness = 0.05; // Reflets très nets (lune/lampadaires)
+// Océan bleu sombre
+uniform vec3 albedo : source_color = vec3(0.02, 0.04, 0.10); // Bleu sombre visible
+uniform float metallic = 0.6;
+uniform float roughness = 0.15;
 
 // Normal Maps générées procéduralement
 uniform sampler2D normalmap_a : hint_normal;
@@ -38,12 +38,10 @@ vec3 get_gerstner_wave(vec4 wave, vec3 p) {
 }
 
 void vertex() {
-    // Calcul des UVs basés sur la position World (pour que ce soit seamless)
     vec2 world_xz = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
     uv_a = world_xz * wave_scale + TIME * scroll_a;
     uv_b = world_xz * wave_scale + TIME * scroll_b;
     
-    // Appliquer la grande houle
     vec3 p_offset = vec3(0.0);
     p_offset += get_gerstner_wave(wave1, VERTEX);
     p_offset += get_gerstner_wave(wave2, VERTEX);
@@ -51,13 +49,15 @@ void vertex() {
 }
 
 void fragment() {
-    // Mélange des deux normal maps pour créer les micro-clapotis chaotiques
     vec3 n_a = texture(normalmap_a, uv_a).rgb;
     vec3 n_b = texture(normalmap_b, uv_b).rgb;
     
     ALBEDO = albedo;
     METALLIC = metallic;
     ROUGHNESS = roughness;
-    NORMAL_MAP = mix(n_a, n_b, 0.5); // Fusion des normales
-    NORMAL_MAP_DEPTH = 1.5; // Accentuer le relief de l'eau
+    NORMAL_MAP = mix(n_a, n_b, 0.5);
+    NORMAL_MAP_DEPTH = 1.5;
+    
+    // Auto-éclairage bleu subtil pour rester visible dans le noir total
+    EMISSION = vec3(0.005, 0.01, 0.03);
 }
