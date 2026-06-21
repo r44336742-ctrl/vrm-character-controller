@@ -1,7 +1,6 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=13 format=3 uid="uid://bwqlfpd45oco4"]
 
 [ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
-[ext_resource type="Script" path="res://scripts/vroid_controller.gd" id="2_o1311"]
 [ext_resource type="Script" path="res://scripts/atmosphere_controller.gd" id="3_rupic"]
 [ext_resource type="Script" path="res://scripts/ash_particles.gd" id="4_lhi2p"]
 
@@ -272,9 +271,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -150)
 size = Vector3(400, 1, 150)
 material = SubResource("Mat_Ocean")
 
-[node name="Character" type="CharacterBody3D" parent="." instance=ExtResource("1_char_scene")]
+[node name="Character" parent="." instance=ExtResource("1_char_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 55)
-script = ExtResource("2_o1311")
 
 [node name="AtmosphereController" type="Node3D" parent="."]
 script = ExtResource("3_rupic")

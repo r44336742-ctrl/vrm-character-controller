@@ -99,22 +99,17 @@ func _physics_process(delta: float) -> void:
     _update_vrm_wind_physics()
 
 func _update_vrm_wind_physics() -> void:
-    if vrm_spring_bones.is_empty():
-        return
+    var sec_nodes = character_model.find_children("*", "VRMSecondary", true)
+    if sec_nodes.size() > 0:
+        var vrm_sec = sec_nodes[0]
+        var global_wind = WindSystem.get_wind_at(global_position)
         
-    var wind = WindSystem.get_wind_at(global_position)
-    for bone in vrm_spring_bones:
-        if bone == null or not is_instance_valid(bone):
-            continue
-            
-        # La gravité par défaut est (0, -1, 0). On y ajoute le vent.
-        var stiffness = bone.get("stiffness_scale")
-        if stiffness == null: stiffness = 1.0
-        var wind_influence = wind * stiffness * 0.15 # Fortement boosté pour effet dramatique
-        var target_gravity = Vector3(0, -1, 0) + wind_influence
+        # springbone_add_force est appliqué en LOCAL space par godot-vrm.
+        # Il faut donc transformer le vent global en vent local en le multipliant par l'inverse de la rotation.
+        var local_wind = character_model.global_transform.basis.inverse() * global_wind
         
-        if "gravity_dir_default" in bone:
-            bone.gravity_dir_default = target_gravity
+        # On booste fortement le vent pour qu'il surpasse la "stiffness" des cheveux
+        vrm_sec.springbone_add_force = local_wind * 2.0
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -277,15 +272,15 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
                     bone.set("drag_force_scale", 0.6)
                     bone.set("stiffness_scale", 0.8)
                     bone.set("gravity_scale", 1.0)
-                elif "hair" in name or "sec" in name:
-                    # Cheveux : plus légers et réactifs
-                    bone.set("drag_force_scale", 0.2)
-                    bone.set("stiffness_scale", 1.5)
-                    bone.set("gravity_scale", 0.8)
+                elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
+                    # Cheveux : très réactifs au vent
+                    bone.set("drag_force_scale", 0.05)
+                    bone.set("stiffness_scale", 0.2)
+                    bone.set("gravity_scale", 0.6)
                 else:
                     # Autres (accessoires)
-                    bone.set("drag_force_scale", 0.4)
-                    bone.set("stiffness_scale", 1.0)
-                    bone.set("gravity_scale", 0.9)
+                    bone.set("drag_force_scale", 0.2)
+                    bone.set("stiffness_scale", 0.5)
+                    bone.set("gravity_scale", 0.8)
                     
                 vrm_spring_bones.append(bone)
