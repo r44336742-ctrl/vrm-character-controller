@@ -29,12 +29,18 @@ void fragment() {
     vec3 n2 = texture(normalmap_b, uv2).rgb * 2.0 - 1.0;
     vec3 micro_n = normalize(n1 + n2 * 0.7);
     
-    vec3 final_N = normalize(vec3(micro_n.x, 1.0, micro_n.z)); // Toujours plat à grande échelle
+    // Dans Godot, l'axe "Haut" (Normal) d'une Normal Map est l'axe Z (Bleu), pas Y (Vert).
+    // Pour aplatir la normale à grande échelle, on force Z vers 1.0, pas Y.
+    vec3 final_N = normalize(vec3(micro_n.xy * 0.5, 1.0)); // Océan plat avec de petites perturbations
+    
+    // Conversion de la normale Tangent-Space vers View-Space pour nos calculs de lumière custom
+    vec3 view_N = normalize(TANGENT * final_N.x + BINORMAL * final_N.y + NORMAL * final_N.z);
     
     // 2. COULEUR & FRESNEL
     vec3 col = mix(albedo_deep, albedo_shallow, 0.4);
     vec3 V = normalize(VIEW);
-    float NdotV = max(dot(final_N, V), 0.0);
+    // Utiliser la normale en View-Space pour le dot product avec V (qui est en View-Space)
+    float NdotV = max(dot(view_N, V), 0.0);
     float fresnel = pow(1.0 - NdotV, 4.0);
     col *= (1.0 - fresnel * 0.9);
     
@@ -45,9 +51,10 @@ void fragment() {
     NORMAL_MAP_DEPTH = 1.5;
 
     // 3. SPÉCULAIRE EN BANDES (Toon Water - Point 2)
-    vec3 L = normalize(moon_dir);
+    // Convertir la direction de la lune (World-Space) en View-Space
+    vec3 L = normalize((VIEW_MATRIX * vec4(moon_dir, 0.0)).xyz);
     vec3 H = normalize(V + L);
-    float NdotH = max(dot(final_N, H), 0.0);
+    float NdotH = max(dot(view_N, H), 0.0);
     
     // Quantifier la réflexion en 2 paliers nets
     float spec_base = smoothstep(0.98, 0.985, NdotH); // Bande large
@@ -62,5 +69,9 @@ void fragment() {
     float glitter = glitter_mask * glitter_flicker * spec_core * 2.0;
     
     // 5. ÉMISSION GLOW
+    // Clamp pour éviter que le bloom explose si les valeurs s'additionnent trop
+    toon_spec = clamp(toon_spec, 0.0, 2.0);
+    glitter = clamp(glitter, 0.0, 2.0);
+    
     EMISSION = vec3(0.4, 0.6, 0.9) * toon_spec + vec3(0.9, 0.95, 1.0) * glitter;
 }
