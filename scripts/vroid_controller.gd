@@ -122,14 +122,10 @@ func _update_hair_physics(delta: float) -> void:
             # ══════════════════════════════════════════════════════════
             var phase = float(idx) * 2.39996
 
-            # Rotation autour de l'axe X local (balancement avant/arrière)
-            var angle_x = sin(t * 0.7 + phase) * 0.35 + sin(t * 2.1 + phase * 1.3) * 0.15
-
-            # Rotation autour de l'axe Z local (balancement gauche/droite)
-            var angle_z = sin(t * 0.9 + phase * 0.7) * 0.30 + sin(t * 3.3 + phase * 1.7) * 0.10
-
-            # Micro-vibration sur Y (twist)
-            var angle_y = sin(t * 4.7 + phase * 2.1) * 0.04
+            # TEST VALEURS EXTREMES
+            var angle_x = sin(t * 0.7 + phase) * 2.0 + sin(t * 2.1 + phase * 1.3) * 0.8
+            var angle_z = sin(t * 0.9 + phase * 0.7) * 1.8 + sin(t * 3.3 + phase * 1.7) * 0.6
+            var angle_y = sin(t * 4.7 + phase * 2.1) * 0.5
 
             # Quaternion local pur = rotation autour des axes propres de l'os
             var local_rot = Quaternion.from_euler(Vector3(angle_x, angle_y, angle_z))
