@@ -21,18 +21,25 @@ uniform float hair_tip_y      : hint_range(0.0, 3.0)  = 1.81;   // Y pointes che
 global uniform vec3 player_velocity;
 
 void vertex() {
-    // ── Hash pseudo-aléatoire par position XZ → variation per-mèche ──
-    // Chaque mèche reçoit une amplitude, phase et vitesse uniques
-    float hash1 = fract(sin(dot(VERTEX.xz, vec2(127.1, 311.7))) * 43758.5453);
-    float hash2 = fract(sin(dot(VERTEX.xz, vec2(269.5, 183.3))) * 76321.1234);
-    float hash3 = fract(sin(dot(VERTEX.xz, vec2(420.6, 631.2))) * 28917.8765);
+    // ══════════════════════════════════════════════════════════════════
+    // STRAND ID : quantiser la position XZ en grille → mêmes vertices
+    // dans une cellule = même mèche = même mouvement.
+    // Cellules voisines = mouvement très différent (hash discontinu).
+    // ══════════════════════════════════════════════════════════════════
+    float cell_size = 0.012;  // ~1.2cm par mèche
+    vec2 cell = floor(VERTEX.xz / cell_size);
+    float strand_id = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+    float strand_id2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 76321.1234);
+    float strand_id3 = fract(sin(dot(cell, vec2(420.6, 631.2))) * 28917.8765);
 
-    // Variation per-mèche : amplitude 0.5x à 1.5x, phase 0 à 2π, speed 0.7x à 1.3x
-    float amp_var   = 0.5 + hash1;           // [0.5 .. 1.5]
-    float phase_var = hash2 * 6.2831;         // [0 .. 2π]
-    float speed_var = 0.7 + hash3 * 0.6;      // [0.7 .. 1.3]
+    // Variation per-mèche discrète
+    float amp_var   = 0.4 + strand_id * 1.2;           // [0.4 .. 1.6]
+    float phase_var = strand_id2 * 6.2831;               // [0 .. 2π]
+    float speed_var = 0.6 + strand_id3 * 0.8;            // [0.6 .. 1.4]
 
-    // ── Facteur de hauteur : sommet crâne = 0, pointes pendantes = 1 ──
+    // ══════════════════════════════════════════════════════════════════
+    // FALLOFF : sommet crâne (Y haut) = 0, pointes pendantes (Y bas) = 1
+    // ══════════════════════════════════════════════════════════════════
     vec4 world_pos = MODEL_MATRIX * vec4(VERTEX, 1.0);
     float h = clamp(
         (hair_tip_y - world_pos.y) / max(hair_tip_y - hair_root_y, 0.01),
@@ -40,46 +47,49 @@ void vertex() {
     );
     float falloff = h * h;
 
-    // ── Couche 1 : balancement lent (per-mèche) ──
-    float slow_x = sin(VERTEX.y * wind_freq_y        + TIME * wind_speed_slow * speed_var + phase_var);
-    float slow_z = sin(VERTEX.x * wind_freq_x        + TIME * wind_speed_slow * 0.8 * speed_var + phase_var + 1.3);
+    // ══════════════════════════════════════════════════════════════════
+    // VENT AMBIANT : 3 couches sinusoïdales avec variation per-mèche
+    // ══════════════════════════════════════════════════════════════════
+    float t = TIME;
+    float slow_x = sin(VERTEX.y * wind_freq_y + t * wind_speed_slow * speed_var + phase_var);
+    float slow_z = sin(VERTEX.x * wind_freq_x + t * wind_speed_slow * 0.8 * speed_var + phase_var + 1.3);
 
-    // ── Couche 2 : flutter moyen (per-mèche) ──
-    float mid_x  = sin(VERTEX.y * wind_freq_y * 1.6  + TIME * wind_speed_fast * speed_var + phase_var + 0.7);
-    float mid_z  = cos(VERTEX.x * wind_freq_x * 1.4  + TIME * wind_speed_fast * 1.2 * speed_var + phase_var + 2.4);
+    float mid_x  = sin(VERTEX.y * wind_freq_y * 1.6 + t * wind_speed_fast * speed_var + phase_var + 0.7);
+    float mid_z  = cos(VERTEX.x * wind_freq_x * 1.4 + t * wind_speed_fast * 1.2 * speed_var + phase_var + 2.4);
 
-    // ── Couche 3 : micro-vibration (per-mèche) ──
-    float micro   = sin(VERTEX.y * wind_freq_y * 3.1  + VERTEX.x * wind_freq_x * 2.3
-                        + TIME * wind_speed_fast * 2.7 * speed_var + phase_var + 1.1) * 0.25;
+    float micro = sin(VERTEX.y * wind_freq_y * 3.1 + VERTEX.x * wind_freq_x * 2.3
+                      + t * wind_speed_fast * 2.7 * speed_var + phase_var + 1.1) * 0.3;
 
     float disp_x = (slow_x * 0.55 + mid_x * 0.30 + micro) * amp_var;
     float disp_z = (slow_z * 0.55 + mid_z * 0.30 + micro * 0.7) * amp_var;
 
-    // ── Inclinaison due à la vitesse ──
-    vec2 vel_xz    = player_velocity.xz;
-    float speed    = length(vel_xz);
-    float tilt_mag = clamp(speed * speed * 0.004, 0.0, 0.15);
-    vec2 tilt_dir  = -normalize(vel_xz + vec2(0.0001));
-    vec3 tilt      = vec3(tilt_dir.x, 0.0, tilt_dir.y) * tilt_mag * falloff;
+    vec3 wind_disp = vec3(disp_x, 0.0, disp_z) * wind_strength * falloff;
 
-    // ── Déplacement total ──
-    vec3 displacement = vec3(disp_x, 0.0, disp_z) * wind_strength * falloff + tilt;
+    // ══════════════════════════════════════════════════════════════════
+    // TILT VITESSE : cheveux en arrière pendant le déplacement
+    // ══════════════════════════════════════════════════════════════════
+    vec2 vel_xz  = player_velocity.xz;
+    float speed  = length(vel_xz);
+    float tilt_mag = clamp(speed * speed * 0.008, 0.0, 0.25);
+    vec2 tilt_dir = -normalize(vel_xz + vec2(0.0001));
+    vec3 tilt = vec3(tilt_dir.x, -0.15 * tilt_mag, tilt_dir.y) * tilt_mag * falloff;
 
-    // ── Anti-clipping : empêcher les cheveux de rentrer dans le corps ──
-    // Centre du corps approximé à (0, Y, 0) en model-space
-    vec3 new_pos = VERTEX + displacement;
-    // Distance du vertex au centre en XZ AVANT et APRÈS displacement
-    float dist_before = length(VERTEX.xz);
-    float dist_after  = length(new_pos.xz);
-    // Si le déplacement rapproche du centre au-delà d'un seuil min → clamp
-    float min_radius = max(dist_before * 0.85, 0.02);  // ne jamais aller en dessous de 85% de la distance originale
-    if (dist_after < min_radius && dist_after > 0.001) {
-        vec2 dir_out = normalize(new_pos.xz);
-        new_pos.x = dir_out.x * min_radius;
-        new_pos.z = dir_out.y * min_radius;
+    // ══════════════════════════════════════════════════════════════════
+    // DÉPLACEMENT TOTAL
+    // ══════════════════════════════════════════════════════════════════
+    vec3 displacement = wind_disp + tilt;
+
+    // ══════════════════════════════════════════════════════════════════
+    // ANTI-CLIPPING : rejeter la composante du déplacement qui pointe
+    // vers l'intérieur du mesh (contre la normale du vertex)
+    // ══════════════════════════════════════════════════════════════════
+    float inward = dot(displacement, NORMAL);
+    if (inward < 0.0) {
+        // Retirer la composante qui pénètre dans le corps
+        displacement -= NORMAL * inward * 1.2;  // 1.2x pour repousser légèrement
     }
 
-    VERTEX = new_pos;
+    VERTEX += displacement;
 }
 
 void fragment() {
