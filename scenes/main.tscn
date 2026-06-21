@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://cspsl8b4i2agw"]
+[gd_scene load_steps=16 format=3 uid="uid://cspsl8b4i2agw"]
 
 [ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
 [ext_resource type="Script" path="res://scripts/hair_weight_painter.gd" id="3_byefy"]
@@ -7,10 +7,6 @@
 [ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terr"]
 [ext_resource type="Script" path="res://scripts/fps_counter.gd" id="6_fps"]
 [ext_resource type="Script" path="res://scripts/ocean_generator.gd" id="7_ocean"]
-
-[sub_resource type="StandardMaterial3D" id="Mat_Stone"]
-albedo_color = Color(0.12, 0.11, 0.1, 1)
-roughness = 0.95
 
 [sub_resource type="StandardMaterial3D" id="Mat_Moon"]
 emission_enabled = true
@@ -36,13 +32,12 @@ roughness = 0.9
 [sub_resource type="StandardMaterial3D" id="Mat_Leaves"]
 albedo_color = Color(0.03, 0.06, 0.04, 1)
 
+[sub_resource type="StandardMaterial3D" id="Mat_Stone"]
+albedo_color = Color(0.12, 0.11, 0.1, 1)
+roughness = 0.95
+
 [sub_resource type="StandardMaterial3D" id="Mat_Hedge"]
 albedo_color = Color(0.05, 0.1, 0.05, 1)
-
-[sub_resource type="StandardMaterial3D" id="Mat_Ocean"]
-albedo_color = Color(0.02, 0.04, 0.08, 1)
-metallic = 0.8
-roughness = 0.2
 
 [node name="Main" type="Node3D"]
 
