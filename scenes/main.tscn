@@ -203,7 +203,6 @@ size = Vector3(1.8, 2.8, 2)
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -8, 2.4, 0)
 operation = 2
 radius = 0.9
-height = 2.0
 
 [node name="WindowR" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, 0)
@@ -214,7 +213,6 @@ size = Vector3(1.8, 2.8, 2)
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 8, 2.4, 0)
 operation = 2
 radius = 0.9
-height = 2.0
 
 [node name="Door" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
@@ -225,7 +223,6 @@ size = Vector3(3, 4, 2)
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0)
 operation = 2
 radius = 1.5
-height = 2.0
 
 [node name="BackWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -7)

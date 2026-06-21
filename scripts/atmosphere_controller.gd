@@ -4,13 +4,13 @@ var world_env: WorldEnvironment
 var moon_light: DirectionalLight3D
 
 func _ready() -> void:
-	# --- CIEL : Noir absolu avec un dégradé bleu très foncé à l'horizon ---
+	# --- CIEL ---
 	var sky_mat = ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.0, 0.0, 0.02)        # Noir quasi-pur en haut
-	sky_mat.sky_horizon_color = Color(0.02, 0.03, 0.08)   # Bleu nuit très foncé à l'horizon
-	sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.0)    # Noir absolu en bas
-	sky_mat.ground_horizon_color = Color(0.01, 0.015, 0.04)
-	sky_mat.sky_energy_multiplier = 0.3  # Réduire l'énergie globale du ciel
+	sky_mat.sky_top_color = Color(0.01, 0.02, 0.06)       # Bleu nuit visible
+	sky_mat.sky_horizon_color = Color(0.04, 0.06, 0.14)    # Horizon bleu plus clair
+	sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.01)
+	sky_mat.ground_horizon_color = Color(0.02, 0.03, 0.08)
+	sky_mat.sky_energy_multiplier = 0.5
 	
 	var sky = Sky.new()
 	sky.sky_material = sky_mat
@@ -18,46 +18,47 @@ func _ready() -> void:
 	var env = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.03, 0.04, 0.08) # Ambient bleu nuit très subtil
-	env.ambient_light_energy = 0.15
 	
-	# --- BROUILLARD : Très léger, bleu nuit ---
+	# --- AMBIENT : "Day for Night" (clé de toute la visibilité) ---
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.08, 0.12, 0.25) # Bleu nuit cinéma
+	env.ambient_light_energy = 0.5 # Assez fort pour tout voir
+	
+	# --- BROUILLARD ---
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_density = 0.002
-	env.fog_light_color = Color(0.02, 0.03, 0.06) # Bleu nuit profond
+	env.fog_density = 0.003
+	env.fog_light_color = Color(0.03, 0.05, 0.12) # Bleu nuit
 	
-	# Pas de volumetric fog (c'est lui qui grisait tout)
 	env.volumetric_fog_enabled = false
 	
 	# --- POST-PROCESSING ---
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 1.1
 	env.tonemap_white = 1.0
 	
 	env.glow_enabled = true
-	env.glow_intensity = 0.6
+	env.glow_intensity = 0.5
 	env.glow_bloom = 0.05
 	env.glow_hdr_threshold = 1.0
 	
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 0.85
-	env.adjustment_contrast = 1.15  # Contraste léger et propre, pas un écrasement
+	env.adjustment_contrast = 1.1
 	
 	world_env = WorldEnvironment.new()
 	world_env.environment = env
 	add_child(world_env)
 	
-	# --- LUNE : Lumière directionnelle bleu froid ---
+	# --- LUNE : Directionnelle forte ---
 	moon_light = DirectionalLight3D.new()
-	moon_light.light_energy = 0.6
-	moon_light.light_color = Color(0.55, 0.7, 1.0) # Bleu lune froid
+	moon_light.light_energy = 1.2 # Plus forte pour éclairer le terrain/manoir
+	moon_light.light_color = Color(0.6, 0.75, 1.0) # Bleu lune
 	moon_light.shadow_enabled = true
 	moon_light.shadow_bias = 0.02
 	moon_light.shadow_normal_bias = 1.0
-	moon_light.shadow_opacity = 0.95
-	moon_light.rotation_degrees = Vector3(-30, -30, 0) # Éclaire en diagonale
+	moon_light.shadow_opacity = 0.85
+	moon_light.rotation_degrees = Vector3(-35, -30, 0)
 	add_child(moon_light)
 	
 	# --- LUNE PHYSIQUE ---
