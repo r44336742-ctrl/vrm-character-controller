@@ -57,7 +57,7 @@ func _ready() -> void:
 	world_env.environment = env
 	add_child(world_env)
 	
-	# --- LUNE : Directionnelle ---
+	# --- LUNE : Directionnelle principale (NW) ---
 	moon_light = DirectionalLight3D.new()
 	moon_light.light_energy = 1.2
 	moon_light.light_color = Color(0.6, 0.75, 1.0)
@@ -65,8 +65,18 @@ func _ready() -> void:
 	moon_light.shadow_bias = 0.02
 	moon_light.shadow_normal_bias = 1.0
 	moon_light.shadow_opacity = 0.85
-	moon_light.rotation_degrees = Vector3(-35, -30, 0)
+	moon_light.rotation_degrees = Vector3(-35, -30, 0) # NW → SE
 	add_child(moon_light)
+	
+	# --- FILL LIGHT : Lumière de remplissage côté SE ---
+	# Technique "day for night" : une 2e directionnelle faible dans la direction opposée
+	# garantit que les normales de l'océan sont lisibles de TOUS les côtés
+	var fill_light = DirectionalLight3D.new()
+	fill_light.light_energy = 0.35 # Assez pour révéler les bumps, pas pour blanchir
+	fill_light.light_color = Color(0.3, 0.45, 0.8) # Bleu plus foncé (lumière réfléchie du ciel)
+	fill_light.shadow_enabled = false # Pas d'ombre = pas de performance
+	fill_light.rotation_degrees = Vector3(-25, 150, 0) # SE → NW (opposé à la lune)
+	add_child(fill_light)
 	
 	# --- LUNE PHYSIQUE ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
