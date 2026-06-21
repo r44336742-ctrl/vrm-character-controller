@@ -270,15 +270,21 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
                 if name == "" and bone.joint_nodes.size() > 0:
                     name = bone.joint_nodes[0].to_lower()
                 
+                # BREAKTHROUGH: Les modèles VRoid "baskent" parfois la physique dans des tableaux par os.
+                # Il FAUT vider ces tableaux pour que nos modificateurs globaux soient pris en compte !
+                bone.set("stiffness_force", PackedFloat64Array())
+                bone.set("gravity_dir", PackedVector3Array())
+                bone.set("gravity_power", PackedFloat64Array())
+                
                 if "skirt" in name or "dress" in name:
-                    # Robe : plus lourde
+                    # Robe
                     bone.set("drag_force_scale", 0.6)
                     bone.set("stiffness_scale", 0.8)
                     bone.set("gravity_scale", 1.0)
                 elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
-                    # Cheveux : extrêmement légers et souples pour s'envoler
+                    # Cheveux : 0 rigidité, force du vent pure !
                     bone.set("drag_force_scale", 0.4)
-                    bone.set("stiffness_scale", 0.05)
+                    bone.set("stiffness_scale", 0.0) # ZERO résistance
                     bone.set("gravity_scale", 0.0)
                 else:
                     # Autres (accessoires)
