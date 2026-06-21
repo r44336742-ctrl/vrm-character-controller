@@ -248,11 +248,17 @@ func _physics_process(delta: float) -> void:
 
     # --- LOGIQUE DE VITESSE ET ANIMATION ---
     var is_sprinting = Input.is_action_pressed("sprint") and direction != Vector3.ZERO
-    var current_speed = sprint_speed if is_sprinting else move_speed
+    var is_super_sprinting = Input.is_key_pressed(KEY_A) and direction != Vector3.ZERO
+    
+    var current_speed = move_speed
+    if is_super_sprinting:
+        current_speed = 20.0
+    elif is_sprinting:
+        current_speed = sprint_speed
     
     var target_anim = "idle"
     if direction != Vector3.ZERO:
-        target_anim = "run" if is_sprinting else "walk"
+        target_anim = "run" if (is_sprinting or is_super_sprinting) else "walk"
     
     # Changement d'animation avec crossfade
     if anim_player and anim_player.has_animation(target_anim):
