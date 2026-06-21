@@ -1,0 +1,315 @@
+[gd_scene load_steps=14 format=3 uid="uid://b5main123"]
+
+[ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat_Night"]
+sky_top_color = Color(0.01, 0.02, 0.04, 1)
+sky_horizon_color = Color(0.04, 0.05, 0.09, 1)
+sky_curve = 0.1
+ground_bottom_color = Color(0.01, 0.01, 0.02, 1)
+ground_horizon_color = Color(0.04, 0.05, 0.09, 1)
+sun_angle_max = 1.0
+
+[sub_resource type="Sky" id="Sky_Night"]
+sky_material = SubResource("SkyMat_Night")
+
+[sub_resource type="Environment" id="Env_Moonlit"]
+background_mode = 2
+sky = SubResource("Sky_Night")
+ambient_light_source = 2
+ambient_light_color = Color(0.04, 0.05, 0.09, 1)
+ambient_light_energy = 0.3
+tonemap_mode = 2
+tonemap_white = 6.0
+glow_enabled = true
+glow_blend_mode = 1
+fog_enabled = true
+fog_light_color = Color(0.06, 0.07, 0.12, 1)
+fog_light_energy = 0.4
+fog_density = 0.08
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.15
+volumetric_fog_albedo = Color(0.04, 0.06, 0.1, 1)
+volumetric_fog_emission = Color(0.03, 0.05, 0.08, 1)
+volumetric_fog_emission_energy = 0.2
+
+[sub_resource type="StandardMaterial3D" id="Mat_Stone"]
+albedo_color = Color(0.12, 0.11, 0.1, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="Mat_Moon"]
+emission_enabled = true
+emission = Color(0.8, 0.85, 1, 1)
+emission_energy_multiplier = 8.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_Moon"]
+radius = 8.0
+height = 16.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_DarkStone"]
+albedo_color = Color(0.08, 0.07, 0.06, 1)
+roughness = 0.98
+
+[sub_resource type="StandardMaterial3D" id="Mat_Path"]
+albedo_color = Color(0.15, 0.15, 0.15, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_Wood"]
+albedo_color = Color(0.1, 0.08, 0.05, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_Leaves"]
+albedo_color = Color(0.03, 0.06, 0.04, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Hedge"]
+albedo_color = Color(0.05, 0.1, 0.05, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Ocean"]
+albedo_color = Color(0.02, 0.04, 0.08, 1)
+metallic = 0.8
+roughness = 0.2
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_Moonlit")
+
+[node name="MoonLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.6, 0.5, -0.6, 0, 0.8, 0.6, 0.8, -0.3, 0.4, -20, 30, -20)
+light_color = Color(0.5, 0.65, 1, 1)
+light_energy = 2.0
+shadow_enabled = true
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 80.0
+
+[node name="EnvironmentAssets" type="Node3D" parent="."]
+
+[node name="Ground" type="CSGBox3D" parent="EnvironmentAssets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(200, 1, 200)
+material = SubResource("Mat_Stone")
+
+[node name="Moon" type="MeshInstance3D" parent="EnvironmentAssets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 25, -50)
+material_override = SubResource("Mat_Moon")
+mesh = SubResource("SphereMesh_Moon")
+
+[node name="Portail" type="Node3D" parent="EnvironmentAssets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 60)
+
+[node name="PillarL" type="CSGCylinder3D" parent="EnvironmentAssets/Portail"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 1.5, 0)
+use_collision = true
+radius = 0.6
+height = 3.0
+material = SubResource("Mat_DarkStone")
+
+[node name="PillarR" type="CSGCylinder3D" parent="EnvironmentAssets/Portail"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.5, 0)
+use_collision = true
+radius = 0.6
+height = 3.0
+material = SubResource("Mat_DarkStone")
+
+[node name="Arch" type="CSGBox3D" parent="EnvironmentAssets/Portail"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
+use_collision = true
+size = Vector3(10, 1, 1)
+material = SubResource("Mat_DarkStone")
+
+[node name="WallL" type="CSGBox3D" parent="EnvironmentAssets/Portail"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 1.5, 0)
+use_collision = true
+size = Vector3(42, 3, 1)
+material = SubResource("Mat_DarkStone")
+
+[node name="WallR" type="CSGBox3D" parent="EnvironmentAssets/Portail"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 1.5, 0)
+use_collision = true
+size = Vector3(42, 3, 1)
+material = SubResource("Mat_DarkStone")
+
+[node name="AlleeBois" type="Node3D" parent="EnvironmentAssets"]
+
+[node name="Path" type="CSGBox3D" parent="EnvironmentAssets/AlleeBois"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 35)
+size = Vector3(6, 0.1, 50)
+material = SubResource("Mat_Path")
+
+[node name="Tree1" type="Node3D" parent="EnvironmentAssets/AlleeBois"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 20)
+
+[node name="Trunk" type="CSGCylinder3D" parent="EnvironmentAssets/AlleeBois/Tree1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+use_collision = true
+radius = 0.4
+height = 4.0
+material = SubResource("Mat_Wood")
+
+[node name="Leaves" type="CSGSphere3D" parent="EnvironmentAssets/AlleeBois/Tree1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
+radius = 2.5
+material = SubResource("Mat_Leaves")
+
+[node name="Tree2" type="Node3D" parent="EnvironmentAssets/AlleeBois"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 40)
+
+[node name="Trunk" type="CSGCylinder3D" parent="EnvironmentAssets/AlleeBois/Tree2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+use_collision = true
+radius = 0.4
+height = 4.0
+material = SubResource("Mat_Wood")
+
+[node name="Leaves" type="CSGSphere3D" parent="EnvironmentAssets/AlleeBois/Tree2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
+radius = 2.5
+material = SubResource("Mat_Leaves")
+
+[node name="CourCirculaire" type="Node3D" parent="EnvironmentAssets"]
+
+[node name="PathSeg1" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 15)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg2" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707, 10.6, 0.05, 10.6)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg3" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 15, 0.05, 0)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg4" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(-0.707, 0, 0.707, 0, 1, 0, -0.707, 0, -0.707, 10.6, 0.05, -10.6)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg5" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.05, -15)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg6" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(-0.707, 0, -0.707, 0, 1, 0, 0.707, 0, -0.707, -10.6, 0.05, -10.6)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg7" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -15, 0.05, 0)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="PathSeg8" type="CSGBox3D" parent="EnvironmentAssets/CourCirculaire"]
+transform = Transform3D(0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707, -10.6, 0.05, 10.6)
+size = Vector3(6, 0.1, 12)
+material = SubResource("Mat_Path")
+
+[node name="Fountain" type="Node3D" parent="EnvironmentAssets/CourCirculaire"]
+
+[node name="Base" type="CSGCylinder3D" parent="EnvironmentAssets/CourCirculaire/Fountain"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+use_collision = true
+radius = 3.0
+height = 0.5
+material = SubResource("Mat_DarkStone")
+
+[node name="Center" type="CSGCylinder3D" parent="EnvironmentAssets/CourCirculaire/Fountain"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+material = SubResource("Mat_DarkStone")
+
+[node name="Top" type="CSGCylinder3D" parent="EnvironmentAssets/CourCirculaire/Fountain"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+radius = 1.5
+height = 0.3
+material = SubResource("Mat_DarkStone")
+
+[node name="Manoir" type="Node3D" parent="EnvironmentAssets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -22)
+
+[node name="FrontWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 7)
+use_collision = true
+size = Vector3(30, 10, 1)
+material = SubResource("Mat_Stone")
+
+[node name="WindowL" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 1, 0)
+operation = 2
+size = Vector3(2, 3, 2)
+
+[node name="WindowR" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, 0)
+operation = 2
+size = Vector3(2, 3, 2)
+
+[node name="Door" type="CSGBox3D" parent="EnvironmentAssets/Manoir/FrontWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+operation = 2
+size = Vector3(3, 4, 2)
+
+[node name="BackWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -7)
+use_collision = true
+size = Vector3(30, 10, 1)
+material = SubResource("Mat_Stone")
+
+[node name="LeftWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 5, 0)
+use_collision = true
+size = Vector3(1, 10, 15)
+material = SubResource("Mat_Stone")
+
+[node name="RightWall" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 5, 0)
+use_collision = true
+size = Vector3(1, 10, 15)
+material = SubResource("Mat_Stone")
+
+[node name="Roof" type="CSGBox3D" parent="EnvironmentAssets/Manoir"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.5, 0)
+use_collision = true
+size = Vector3(32, 1, 17)
+material = SubResource("Mat_DarkStone")
+
+[node name="JardinArriere" type="Node3D" parent="EnvironmentAssets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -45)
+
+[node name="Hedge1" type="CSGBox3D" parent="EnvironmentAssets/JardinArriere"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.5, 0)
+use_collision = true
+size = Vector3(1, 1, 20)
+material = SubResource("Mat_Hedge")
+
+[node name="Hedge2" type="CSGBox3D" parent="EnvironmentAssets/JardinArriere"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.5, 0)
+use_collision = true
+size = Vector3(1, 1, 20)
+material = SubResource("Mat_Hedge")
+
+[node name="StatueBase" type="CSGCylinder3D" parent="EnvironmentAssets/JardinArriere"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 5)
+use_collision = true
+radius = 0.8
+height = 1.0
+material = SubResource("Mat_Stone")
+
+[node name="Falaise" type="Node3D" parent="EnvironmentAssets"]
+
+[node name="CliffEdge" type="CSGBox3D" parent="EnvironmentAssets/Falaise"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -75)
+use_collision = true
+size = Vector3(200, 20, 2)
+material = SubResource("Mat_Stone")
+
+[node name="Ocean" type="CSGBox3D" parent="EnvironmentAssets/Falaise"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -150)
+size = Vector3(400, 1, 150)
+material = SubResource("Mat_Ocean")
+
+[node name="Character" parent="." instance=ExtResource("1_char_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 55)

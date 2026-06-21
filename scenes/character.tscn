@@ -1,0 +1,59 @@
+[gd_scene load_steps=10 format=3 uid="uid://b5character123"]
+
+[ext_resource type="Script" path="res://scripts/character_controller.gd" id="1_char_ctrl"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="2_cam_rig"]
+[ext_resource type="PackedScene" path="res://assets/models/nami_idle.fbx" id="3_nami_model"]
+[ext_resource type="Material" path="res://assets/textures/nami/mat_Wear.tres" id="mat_wear"]
+[ext_resource type="Material" path="res://assets/textures/nami/mat_Face.tres" id="mat_face"]
+[ext_resource type="Material" path="res://assets/textures/nami/mat_Hair.tres" id="mat_hair"]
+[ext_resource type="Material" path="res://assets/textures/nami/mat_Body.tres" id="mat_body"]
+[ext_resource type="Material" path="res://assets/textures/nami/mat_Iris.tres" id="mat_iris"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.4
+height = 1.8
+
+[node name="Character" type="CharacterBody3D"]
+script = ExtResource("1_char_ctrl")
+move_speed = 3.5
+rotation_speed = 8.0
+acceleration = 4.0
+friction = 12.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="ModelPivot" type="Node3D" parent="."]
+
+[node name="Nami" parent="ModelPivot" instance=ExtResource("3_nami_model")]
+transform = Transform3D(6.66, 0, 0, 0, 6.66, 0, 0, 0, 6.66, 0, 0, 0)
+
+[node name="Object_0" parent="ModelPivot/Nami/Skeleton3D" index="0"]
+surface_material_override/0 = ExtResource("mat_wear")
+
+[node name="Object_1" parent="ModelPivot/Nami/Skeleton3D" index="1"]
+surface_material_override/0 = ExtResource("mat_face")
+
+[node name="Object_2" parent="ModelPivot/Nami/Skeleton3D" index="2"]
+surface_material_override/0 = ExtResource("mat_hair")
+
+[node name="Object_3" parent="ModelPivot/Nami/Skeleton3D" index="3"]
+surface_material_override/0 = ExtResource("mat_body")
+
+[node name="Object_4" parent="ModelPivot/Nami/Skeleton3D" index="4"]
+surface_material_override/0 = ExtResource("mat_iris")
+
+[node name="CameraRig" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("2_cam_rig")
+mouse_sensitivity = 0.003
+min_pitch = -0.6
+max_pitch = 0.9
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
+spring_length = 4.0
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
+current = true
