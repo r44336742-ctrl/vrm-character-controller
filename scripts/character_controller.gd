@@ -108,55 +108,60 @@ func _ready() -> void:
             _apply_lace_dress()
 
 func _physics_process(delta: float) -> void:
-    if is_on_floor():
-        velocity.y = 0.0
-    else:
-        velocity.y -= gravity * delta
+	if is_on_floor():
+		velocity.y = 0.0
+	else:
+		velocity.y -= gravity * delta
 
-    var input_dir: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var input_dir: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	
+	# Sprint (Shift)
+	var current_speed = move_speed
+	if Input.is_action_pressed("sprint"):
+		current_speed = 7.0
 
-    var cam_basis = camera.global_transform.basis
-    var forward: Vector3 = -cam_basis.z
-    var right: Vector3 = cam_basis.x
-    forward.y = 0.0
-    right.y = 0.0
-    forward = forward.normalized()
-    right = right.normalized()
+	var cam_basis = camera.global_transform.basis
+	var forward: Vector3 = -cam_basis.z
+	var right: Vector3 = cam_basis.x
+	forward.y = 0.0
+	right.y = 0.0
+	forward = forward.normalized()
+	right = right.normalized()
 
-    var direction: Vector3 = (forward * -input_dir.y + right * input_dir.x).normalized()
+	var direction: Vector3 = (forward * -input_dir.y + right * input_dir.x).normalized()
 
-    if direction != Vector3.ZERO:
-        # INERTIE AJOUTÉE : Empêche le changement de direction brusque (sensation de "boost")
-        # Le personnage met un quart de seconde pour atteindre sa vitesse max.
-        velocity.x = lerp(velocity.x, direction.x * move_speed, acceleration * delta)
-        velocity.z = lerp(velocity.z, direction.z * move_speed, acceleration * delta)
-        
-        var target_rotation: float = atan2(-direction.x, -direction.z)
-        model_pivot.rotation.y = lerp_angle(model_pivot.rotation.y, target_rotation, delta * rotation_speed)
-        
-        if anim_player and anim_player.has_animation("walk"):
-            if anim_player.current_animation != "walk":
-                anim_player.play("walk", 0.2)
-        
-        # Son de pas
-        var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
-        if audio_mgr:
-            audio_mgr.start_walking()
-    else:
-        # FRICTION : Le personnage glisse légèrement pour s'arrêter en douceur
-        velocity.x = lerp(velocity.x, 0.0, friction * delta)
-        velocity.z = lerp(velocity.z, 0.0, friction * delta)
-        
-        if anim_player and anim_player.has_animation("idle"):
-            if anim_player.current_animation != "idle":
-                anim_player.play("idle", 0.2)
-        
-        # Arrêt du son de pas
-        var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
-        if audio_mgr:
-            audio_mgr.stop_walking()
+	if direction != Vector3.ZERO:
+		velocity.x = lerp(velocity.x, direction.x * current_speed, acceleration * delta)
+		velocity.z = lerp(velocity.z, direction.z * current_speed, acceleration * delta)
+		
+		var target_rotation: float = atan2(-direction.x, -direction.z)
+		model_pivot.rotation.y = lerp_angle(model_pivot.rotation.y, target_rotation, delta * rotation_speed)
+		
+		if anim_player and anim_player.has_animation("walk"):
+			if anim_player.current_animation != "walk":
+				anim_player.play("walk", 0.2)
+			# Vitesse d'animation proportionnelle au sprint
+			anim_player.speed_scale = current_speed / move_speed
+		
+		# Son de pas (timer plus rapide en sprint)
+		var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
+		if audio_mgr:
+			audio_mgr.start_walking()
+			audio_mgr.set_step_interval(0.45 * (move_speed / current_speed))
+	else:
+		velocity.x = lerp(velocity.x, 0.0, friction * delta)
+		velocity.z = lerp(velocity.z, 0.0, friction * delta)
+		
+		if anim_player and anim_player.has_animation("idle"):
+			if anim_player.current_animation != "idle":
+				anim_player.play("idle", 0.2)
+			anim_player.speed_scale = 1.0
+		
+		var audio_mgr = get_tree().root.get_node_or_null("Main/AudioManager")
+		if audio_mgr:
+			audio_mgr.stop_walking()
 
-    move_and_slide()
+	move_and_slide()
     
     # --- ANIMATION CHEVEUX ---
     _update_hair_animation()

@@ -76,6 +76,6 @@ void fragment() {
     NORMAL_MAP = mix(n_a, n_b, 0.5);
     NORMAL_MAP_DEPTH = 1.8;
     
-    // Auto-éclairage bleu subtil
-    EMISSION = vec3(0.005, 0.01, 0.03) + vec3(0.01, 0.015, 0.025) * depth_var;
+    // Auto-éclairage bleu pour que les détails soient visibles de partout
+    EMISSION = vec3(0.01, 0.02, 0.06) + vec3(0.015, 0.02, 0.04) * depth_var;
 }
