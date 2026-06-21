@@ -121,35 +121,47 @@ func _paint_weights() -> void:
 		for v in range(vert_count):
 			var vert_pos: Vector3 = vertices[v]
 			
-			# Trouver l'os Hair le plus proche
-			var closest_bind_idx: int = -1
-			var closest_dist: float = INF
+			# Trouver les 2 os Hair les plus proches (blend pour éviter blocs rigides)
+			var best_bind: Array[int] = [-1, -1]
+			var best_dist: Array[float] = [INF, INF]
 			for bi in range(hair_bones.size()):
 				var bone_pos = hair_bone_positions[bi]
 				var dx = vert_pos.x - bone_pos.x
 				var dz = vert_pos.z - bone_pos.z
 				var dy = vert_pos.y - bone_pos.y
 				var dist = sqrt(dx*dx + dz*dz + dy*dy*0.3)
-				if dist < closest_dist:
-					closest_dist = dist
-					closest_bind_idx = hair_bone_binds[bi]  # BIND index, pas skeleton index !
+				if dist < best_dist[0]:
+					best_dist[1] = best_dist[0]; best_bind[1] = best_bind[0]
+					best_dist[0] = dist;          best_bind[0] = hair_bone_binds[bi]
+				elif dist < best_dist[1]:
+					best_dist[1] = dist;          best_bind[1] = hair_bone_binds[bi]
 			
-			# Gradient basé sur la hauteur Y
+			# Gradient basé sur la hauteur Y (max 35% aux pointes)
 			var hair_weight: float = 0.0
 			if vert_pos.y < root_y:
 				var progress = (root_y - vert_pos.y) / (root_y - y_min)
-				hair_weight = clampf(pow(progress, 0.8) * 0.65, 0.0, 0.65)
+				hair_weight = clampf(pow(progress, 0.9) * 0.35, 0.0, 0.35)
 			
-			if hair_weight > 0.01 and closest_bind_idx >= 0:
+			if hair_weight > 0.01 and best_bind[0] >= 0:
 				var head_weight: float = 1.0 - hair_weight
-				new_bones[v * 4 + 0] = head_bind      # BIND index pour Head
-				new_weights[v * 4 + 0] = head_weight
-				new_bones[v * 4 + 1] = closest_bind_idx  # BIND index pour Hair bone
-				new_weights[v * 4 + 1] = hair_weight
-				new_bones[v * 4 + 2] = 0
-				new_weights[v * 4 + 2] = 0.0
-				new_bones[v * 4 + 3] = 0
-				new_weights[v * 4 + 3] = 0.0
+				
+				if best_bind[1] >= 0 and best_dist[1] < INF:
+					# Blend 2 os : répartir hair_weight selon distance inverse
+					var w0 = 1.0 / (best_dist[0] + 0.001)
+					var w1 = 1.0 / (best_dist[1] + 0.001)
+					var total_w = w0 + w1
+					var share0 = (w0 / total_w) * hair_weight
+					var share1 = (w1 / total_w) * hair_weight
+					new_bones[v * 4 + 0]   = head_bind;      new_weights[v * 4 + 0] = head_weight
+					new_bones[v * 4 + 1]   = best_bind[0];   new_weights[v * 4 + 1] = share0
+					new_bones[v * 4 + 2]   = best_bind[1];   new_weights[v * 4 + 2] = share1
+					new_bones[v * 4 + 3]   = 0;              new_weights[v * 4 + 3] = 0.0
+				else:
+					# Fallback : 1 seul os Hair
+					new_bones[v * 4 + 0]   = head_bind;      new_weights[v * 4 + 0] = head_weight
+					new_bones[v * 4 + 1]   = best_bind[0];   new_weights[v * 4 + 1] = hair_weight
+					new_bones[v * 4 + 2]   = 0;              new_weights[v * 4 + 2] = 0.0
+					new_bones[v * 4 + 3]   = 0;              new_weights[v * 4 + 3] = 0.0
 				painted_count += 1
 		
 		arrays[Mesh.ARRAY_BONES] = new_bones
