@@ -47,7 +47,14 @@ void vertex() {
     vec2 tilt_dir = -normalize(vel_xz + vec2(0.0001));
     vec3 tilt = vec3(tilt_dir.x, 0.0, tilt_dir.y) * tilt_mag * falloff;
 
-    VERTEX += vec3(disp_x, 0.0, disp_z) * wind_strength * falloff + tilt;
+    vec3 displacement = vec3(disp_x, 0.0, disp_z) * wind_strength * falloff + tilt;
+
+    // Anti-clipping : retirer toute composante qui pousse les cheveux
+    // vers l'intérieur du mesh (contre la normale)
+    float inward = min(dot(displacement, NORMAL), 0.0);
+    displacement -= NORMAL * inward;
+
+    VERTEX += displacement;
 }
 
 void fragment() {
