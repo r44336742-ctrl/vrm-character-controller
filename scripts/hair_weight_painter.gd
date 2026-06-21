@@ -1,19 +1,14 @@
 extends Node
-## Runtime Hair Weight Painter
+## Runtime Hair Weight Painter v2
 ## Réassigne les vertex weights du mesh Hair aux os J_Sec_Hair* au démarrage.
-## Ceci corrige les modèles VRoid exportés sans bone weights sur les cheveux.
+## Utilise les REST poses (même espace de coordonnées que les vertices).
 
 @export var hair_mesh_name: String = "Hair"
 @export var head_bone_name: String = "Head"
 
-# Contrôle du gradient de poids
-@export var root_radius: float = 0.06  # Distance au-dessous de laquelle le vertex reste 100% Head
-@export var max_influence_distance: float = 0.35  # Distance max pour le hair bone le plus proche
-
 var _painted: bool = false
 
 func _ready() -> void:
-	# Attendre une frame pour que le VRM soit complètement chargé
 	call_deferred("_paint_weights")
 
 func _paint_weights() -> void:
@@ -25,51 +20,62 @@ func _paint_weights() -> void:
 	if parent == null:
 		return
 	
-	# Trouver le skeleton
 	var skels = parent.find_children("*", "Skeleton3D", true)
 	if skels.is_empty():
-		push_warning("HairWeightPainter: Skeleton3D not found")
 		return
 	var skel: Skeleton3D = skels[0]
 	
-	# Trouver le mesh Hair
 	var mesh_node: MeshInstance3D = null
 	var mesh_nodes = parent.find_children("*", "MeshInstance3D", true)
 	for mn in mesh_nodes:
-		if mn.name == hair_mesh_name or hair_mesh_name in mn.name:
+		if hair_mesh_name in mn.name:
 			mesh_node = mn
 			break
 	if mesh_node == null:
-		push_warning("HairWeightPainter: Hair mesh not found")
 		return
 	
 	var mesh: ArrayMesh = mesh_node.mesh as ArrayMesh
 	if mesh == null:
-		push_warning("HairWeightPainter: Mesh is not ArrayMesh")
 		return
 	
-	# Identifier les os Hair et leur position world
 	var head_idx: int = skel.find_bone(head_bone_name)
 	if head_idx == -1:
-		push_warning("HairWeightPainter: Head bone not found")
 		return
 	
-	var head_pos: Vector3 = skel.get_bone_global_pose(head_idx).origin
+	# Récupérer la position du sommet du crâne en skeleton space
+	# La position HEAD rest est l'ancre supérieure
+	var head_global_rest = _get_bone_global_rest(skel, head_idx)
+	var head_pos: Vector3 = head_global_rest.origin
 	
+	# Collecter les os Hair avec leurs positions en skeleton-space
 	var hair_bones: Array[int] = []
 	var hair_bone_positions: Array[Vector3] = []
 	for i in range(skel.get_bone_count()):
 		if "Hair" in skel.get_bone_name(i):
 			hair_bones.append(i)
-			hair_bone_positions.append(skel.get_bone_global_pose(i).origin)
+			hair_bone_positions.append(_get_bone_global_rest(skel, i).origin)
 	
 	if hair_bones.is_empty():
-		push_warning("HairWeightPainter: No hair bones found")
 		return
 	
-	print("[HairWeightPainter] Painting ", mesh.get_surface_count(), " surfaces, ", hair_bones.size(), " hair bones")
+	# Trouver la hauteur Y max et min des cheveux pour calibrer le gradient
+	var y_max: float = -INF
+	var y_min: float = INF
+	for surf_idx in range(mesh.get_surface_count()):
+		var arrays = mesh.surface_get_arrays(surf_idx)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for v in range(len(verts)):
+			y_max = maxf(y_max, verts[v].y)
+			y_min = minf(y_min, verts[v].y)
 	
-	# Recréer le mesh complet avec les nouveaux weights
+	var hair_height = y_max - y_min
+	# Le seuil de racine : le quart supérieur reste fermement sur Head
+	var root_y = y_max - hair_height * 0.15
+	
+	print("[HairWeightPainter v2] Hair Y range: ", y_min, " to ", y_max, " height=", hair_height)
+	print("[HairWeightPainter v2] Root threshold Y: ", root_y, " (top 15% stays on Head)")
+	
+	# Recréer le mesh avec les nouveaux weights
 	var new_mesh = ArrayMesh.new()
 	var painted_total: int = 0
 	
@@ -92,22 +98,28 @@ func _paint_weights() -> void:
 		for v in range(vert_count):
 			var vert_pos: Vector3 = vertices[v]
 			
-			# Trouver l'os Hair le plus proche
+			# Trouver l'os Hair le plus proche (distance horizontale XZ prioritaire)
 			var closest_bone_idx: int = -1
 			var closest_dist: float = INF
 			for bi in range(hair_bones.size()):
-				var dist = vert_pos.distance_to(hair_bone_positions[bi])
+				var bone_pos = hair_bone_positions[bi]
+				# Distance 3D mais avec poids sur XZ pour mieux cibler les mèches
+				var dx = vert_pos.x - bone_pos.x
+				var dz = vert_pos.z - bone_pos.z
+				var dy = vert_pos.y - bone_pos.y
+				var dist = sqrt(dx*dx + dz*dz + dy*dy*0.3)
 				if dist < closest_dist:
 					closest_dist = dist
 					closest_bone_idx = hair_bones[bi]
 			
-			# Distance à la tête (racine des cheveux)
-			var head_dist = vert_pos.distance_to(head_pos)
-			
-			# Calculer le poids : plus le vertex est loin de la tête, plus il suit le hair bone
+			# Gradient basé sur la hauteur Y : 
+			# - Au dessus de root_y → 100% Head (racines)
+			# - En dessous de root_y → gradient vers Hair bone (pointes)
 			var hair_weight: float = 0.0
-			if head_dist > root_radius:
-				hair_weight = clampf((head_dist - root_radius) / (max_influence_distance - root_radius), 0.0, 0.85)
+			if vert_pos.y < root_y:
+				# Progression linéaire de 0 à max_weight du root vers le bas
+				var progress = (root_y - vert_pos.y) / (root_y - y_min)
+				hair_weight = clampf(progress * 0.65, 0.0, 0.65)
 			
 			if hair_weight > 0.01 and closest_bone_idx >= 0:
 				var head_weight: float = 1.0 - hair_weight
@@ -127,8 +139,15 @@ func _paint_weights() -> void:
 		new_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, fmt)
 		new_mesh.surface_set_material(new_mesh.get_surface_count() - 1, mesh.surface_get_material(surf_idx))
 		painted_total += painted_count
-		print("[HairWeightPainter] Surface ", surf_idx, ": painted ", painted_count, "/", vert_count, " vertices")
 	
-	# Remplacer le mesh
 	mesh_node.mesh = new_mesh
-	print("[HairWeightPainter] Done! Total painted: ", painted_total)
+	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices")
+
+# Calcule la rest pose globale d'un os (en remontant la chaîne parentale)
+func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
+	var result = skel.get_bone_rest(bone_idx)
+	var parent_idx = skel.get_bone_parent(bone_idx)
+	while parent_idx >= 0:
+		result = skel.get_bone_rest(parent_idx) * result
+		parent_idx = skel.get_bone_parent(parent_idx)
+	return result
