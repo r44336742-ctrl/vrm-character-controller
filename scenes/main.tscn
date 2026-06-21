@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/ash_particles.gd" id="4_lhi2p"]
 [ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terr"]
 [ext_resource type="Script" path="res://scripts/fps_counter.gd" id="6_fps"]
+[ext_resource type="Script" path="res://scripts/ocean_generator.gd" id="7_ocean"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_Stone"]
 albedo_color = Color(0.12, 0.11, 0.1, 1)
@@ -266,10 +267,8 @@ use_collision = true
 size = Vector3(200, 20, 2)
 material = SubResource("Mat_Stone")
 
-[node name="Ocean" type="CSGBox3D" parent="EnvironmentAssets/Falaise"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -150)
-size = Vector3(400, 1, 150)
-material = SubResource("Mat_Ocean")
+[node name="OceanGenerator" type="Node3D" parent="EnvironmentAssets/Falaise"]
+script = ExtResource("7_ocean")
 
 [node name="Character" parent="." instance=ExtResource("1_char_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 55)
