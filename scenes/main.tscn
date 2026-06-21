@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/hair_weight_painter.gd" id="3_byefy"]
 [ext_resource type="Script" path="res://scripts/atmosphere_controller.gd" id="3_rupic"]
 [ext_resource type="Script" path="res://scripts/ash_particles.gd" id="4_lhi2p"]
+[ext_resource type="Script" path="res://scripts/terrain_generator.gd" id="5_terr"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_Stone"]
 albedo_color = Color(0.12, 0.11, 0.1, 1)
@@ -45,11 +46,8 @@ roughness = 0.2
 
 [node name="EnvironmentAssets" type="Node3D" parent="."]
 
-[node name="Ground" type="CSGBox3D" parent="EnvironmentAssets"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-use_collision = true
-size = Vector3(200, 1, 200)
-material = SubResource("Mat_Stone")
+[node name="TerrainGenerator" type="Node3D" parent="EnvironmentAssets"]
+script = ExtResource("5_terr")
 
 [node name="Moon" type="MeshInstance3D" parent="EnvironmentAssets"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 25, -50)
