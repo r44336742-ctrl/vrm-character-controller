@@ -109,7 +109,7 @@ func _update_vrm_wind_physics() -> void:
         var local_wind = character_model.global_transform.basis.inverse() * global_wind
         
         # On booste fortement le vent pour qu'il surpasse la "stiffness" des cheveux
-        vrm_sec.springbone_add_force = local_wind * 2.0
+        vrm_sec.springbone_add_force = local_wind * 10.0
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -273,14 +273,14 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
                     bone.set("stiffness_scale", 0.8)
                     bone.set("gravity_scale", 1.0)
                 elif "hair" in name or "sec" in name or "cheveux" in name or "front" in name or "back" in name:
-                    # Cheveux : très réactifs au vent
-                    bone.set("drag_force_scale", 0.05)
-                    bone.set("stiffness_scale", 0.2)
-                    bone.set("gravity_scale", 0.6)
+                    # Cheveux : extrêmement légers et souples pour s'envoler
+                    bone.set("drag_force_scale", 0.4)
+                    bone.set("stiffness_scale", 0.05)
+                    bone.set("gravity_scale", 0.0)
                 else:
                     # Autres (accessoires)
-                    bone.set("drag_force_scale", 0.2)
+                    bone.set("drag_force_scale", 0.4)
                     bone.set("stiffness_scale", 0.5)
-                    bone.set("gravity_scale", 0.8)
+                    bone.set("gravity_scale", 0.5)
                     
                 vrm_spring_bones.append(bone)
