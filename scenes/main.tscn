@@ -1,37 +1,9 @@
-[gd_scene load_steps=14 format=3 uid="uid://b5main123"]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
-
-[sub_resource type="ProceduralSkyMaterial" id="SkyMat_Night"]
-sky_top_color = Color(0.01, 0.02, 0.04, 1)
-sky_horizon_color = Color(0.04, 0.05, 0.09, 1)
-sky_curve = 0.1
-ground_bottom_color = Color(0.01, 0.01, 0.02, 1)
-ground_horizon_color = Color(0.04, 0.05, 0.09, 1)
-sun_angle_max = 1.0
-
-[sub_resource type="Sky" id="Sky_Night"]
-sky_material = SubResource("SkyMat_Night")
-
-[sub_resource type="Environment" id="Env_Moonlit"]
-background_mode = 2
-sky = SubResource("Sky_Night")
-ambient_light_source = 2
-ambient_light_color = Color(0.04, 0.05, 0.09, 1)
-ambient_light_energy = 0.3
-tonemap_mode = 2
-tonemap_white = 6.0
-glow_enabled = true
-glow_blend_mode = 1
-fog_enabled = true
-fog_light_color = Color(0.06, 0.07, 0.12, 1)
-fog_light_energy = 0.4
-fog_density = 0.08
-volumetric_fog_enabled = true
-volumetric_fog_density = 0.15
-volumetric_fog_albedo = Color(0.04, 0.06, 0.1, 1)
-volumetric_fog_emission = Color(0.03, 0.05, 0.08, 1)
-volumetric_fog_emission_energy = 0.2
+[ext_resource type="Script" path="res://scripts/vroid_controller.gd" id="2_o1311"]
+[ext_resource type="Script" path="res://scripts/atmosphere_controller.gd" id="3_rupic"]
+[ext_resource type="Script" path="res://scripts/ash_particles.gd" id="4_lhi2p"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_Stone"]
 albedo_color = Color(0.12, 0.11, 0.1, 1)
@@ -70,17 +42,6 @@ metallic = 0.8
 roughness = 0.2
 
 [node name="Main" type="Node3D"]
-
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Env_Moonlit")
-
-[node name="MoonLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.6, 0.5, -0.6, 0, 0.8, 0.6, 0.8, -0.3, 0.4, -20, 30, -20)
-light_color = Color(0.5, 0.65, 1, 1)
-light_energy = 2.0
-shadow_enabled = true
-directional_shadow_blend_splits = true
-directional_shadow_max_distance = 80.0
 
 [node name="EnvironmentAssets" type="Node3D" parent="."]
 
@@ -311,5 +272,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, -150)
 size = Vector3(400, 1, 150)
 material = SubResource("Mat_Ocean")
 
-[node name="Character" parent="." instance=ExtResource("1_char_scene")]
+[node name="Character" type="CharacterBody3D" parent="." instance=ExtResource("1_char_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 55)
+script = ExtResource("2_o1311")
+
+[node name="AtmosphereController" type="Node3D" parent="."]
+script = ExtResource("3_rupic")
+
+[node name="AshParticles" type="GPUParticles3D" parent="."]
+script = ExtResource("4_lhi2p")

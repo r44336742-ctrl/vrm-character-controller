@@ -15,7 +15,11 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var anim_player: AnimationPlayer = null
 var character_model: Node = null
 
+# Références pour la physique VRM
+var vrm_spring_bones: Array = []
+
 func _ready() -> void:
+    add_to_group("player") # Requis pour Atmosphere et Particules
     character_model = $ModelPivot.get_child(0)
     if character_model:
         character_model.rotation.y = PI
@@ -90,6 +94,27 @@ func _physics_process(delta: float) -> void:
         velocity.z = lerp(velocity.z, 0.0, friction * delta)
 
     move_and_slide()
+    
+    # Mise à jour de la physique VRM avec le vent
+    _update_vrm_wind_physics()
+
+func _update_vrm_wind_physics() -> void:
+    if vrm_spring_bones.is_empty():
+        return
+        
+    var wind = WindSystem.get_wind_at(global_position)
+    for bone in vrm_spring_bones:
+        if bone == null or not is_instance_valid(bone):
+            continue
+            
+        # La gravité par défaut est (0, -1, 0). On y ajoute le vent.
+        var wind_influence = wind * bone.get("stiffness_scale", 1.0) * 0.02
+        var target_gravity = Vector3(0, -1, 0) + wind_influence
+        
+        if "gravity_dir" in bone:
+            bone.gravity_dir = target_gravity
+        elif "gravity" in bone:
+            bone.gravity = target_gravity
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -234,25 +259,30 @@ func _find_anim_player(node: Node) -> AnimationPlayer:
     return null
 
 func _setup_hair_physics(skeleton: Skeleton3D) -> void:
-    # Le plugin godot-vrm ajoute souvent un noeud "secondary" pour la physique
-    # On va le chercher dans l'arborescence du modèle
-    var secondary_node = null
-    var parent = skeleton.get_parent()
-    if parent:
-        secondary_node = parent.get_node_or_null("secondary")
-        if not secondary_node:
-            secondary_node = parent.get_node_or_null("VRMSecondary")
+    # Recherche du nœud VRMSecondary
+    var sec_nodes = character_model.find_children("*", "VRMSecondary", true)
+    if sec_nodes.size() > 0:
+        var vrm_sec = sec_nodes[0]
+        
+        # Recherche de tous les VRMSpringBone
+        var bones = vrm_sec.find_children("*", "VRMSpringBone", true)
+        for bone in bones:
+            var name = bone.name.to_lower()
             
-    if secondary_node and "spring_bones" in secondary_node:
-        var spring_bones = secondary_node.spring_bones
-        for sb in spring_bones:
-            # On booste les valeurs pour un rendu OVERANIMATED (fluide et rebondissant)
-            if sb:
-                # Baisse la résistance de l'air pour que les cheveux volent plus loin
-                sb.drag_force_scale = 0.2
-                # Augmente un peu la rigidité pour l'effet ressort
-                sb.stiffness_scale = 1.5
-                # On peut même réduire un peu la gravité si on veut que ça flotte
-                sb.gravity_scale = 0.8
+            if "skirt" in name or "dress" in name:
+                # Robe : plus lourde
+                bone.set("drag_force_scale", 0.6)
+                bone.set("stiffness_scale", 0.8)
+                bone.set("gravity_scale", 1.0)
+            elif "hair" in name or "sec" in name:
+                # Cheveux : plus légers et réactifs
+                bone.set("drag_force_scale", 0.2)
+                bone.set("stiffness_scale", 1.5)
+                bone.set("gravity_scale", 0.8)
+            else:
+                # Autres (accessoires)
+                bone.set("drag_force_scale", 0.4)
+                bone.set("stiffness_scale", 1.0)
+                bone.set("gravity_scale", 0.9)
                 
-        print("Physique OVERANIMATED activée pour les cheveux/jupes !")
+            vrm_spring_bones.append(bone)
