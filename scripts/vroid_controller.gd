@@ -94,64 +94,54 @@ func _update_hair_physics(delta: float) -> void:
     for idx in range(_hair_bone_indices.size()):
         var bone_idx   = _hair_bone_indices[idx]
         var parent_idx = _hair_parent_indices[idx]
-        var rest_dir   = _hair_rest_dirs[idx]
-        var rest_origin = _hair_rest_origins[idx]
-        var bone_len   = _hair_bone_lengths[idx]
+        var rest_dir   = _hair_rest_dirs[idx]        # direction repos en parent-local space
+        var bone_len   = minf(_hair_bone_lengths[idx], 0.12)  # cap 12cm pour angles visibles
 
-        # ── 1. Racine : suit l'animation du parent (ex: Head) ──
-        # get_bone_global_pose retourne la pose animée courante en skeleton-space
-        var parent_pose_skel = skel.get_bone_global_pose(parent_idx)
-        # Position de la racine de cet os en skeleton-space :
-        var root_skel_pos = parent_pose_skel * rest_origin
-        # En world-space :
-        var root_world = skel_xf * root_skel_pos
+        # ── 1. Racine via gp.origin (persistent=true garde la pos correcte) ──
+        var gp = skel.get_bone_global_pose(bone_idx)
+        var root_world = skel_xf * gp.origin
 
-        # ── 2. Position repos de la pointe en world-space ──
-        var rest_dir_world = skel_xf.basis * (parent_pose_skel.basis * rest_dir)
+        # Direction de repos en world-space (via parent animé)
+        var parent_gp = skel.get_bone_global_pose(parent_idx)
+        var rest_dir_skel = (parent_gp.basis * rest_dir).normalized()
+        var rest_dir_world = (skel_xf.basis * rest_dir_skel).normalized()
         var rest_tail_world = root_world + rest_dir_world * bone_len
 
-        # ── 3. Verlet integration ──
+        # ── 2. Verlet ──
         var cur = _hair_tail_cur[idx]
         var prv = _hair_tail_prv[idx]
-
         var vel = (cur - prv) * (1.0 - H_DRAG)
-        var gravity_f  = Vector3(0.0, -H_GRAVITY, 0.0) * dt2
-        var wind_f     = wind_world * dt2 * H_WIND_MUL
-        var stiff_f    = (rest_tail_world - cur) * H_STIFF
-
+        var gravity_f = Vector3(0.0, -H_GRAVITY, 0.0) * dt2
+        var wind_f    = wind_world * dt2 * H_WIND_MUL
+        var stiff_f   = (rest_tail_world - cur) * H_STIFF
         var next = cur + vel + gravity_f + wind_f + stiff_f
 
-        # ── 4. Contrainte de longueur (pendule rigide) ──
+        # ── 3. Contrainte longueur ──
         var to_next = next - root_world
         if to_next.length() > 0.001:
             next = root_world + to_next.normalized() * bone_len
-
         _hair_tail_prv[idx] = cur
         _hair_tail_cur[idx] = next
 
-        # ── 5. Rotation locale ──
-        # Direction désirée en skeleton-space
-        var desired_dir_world = (next - root_world).normalized()
-        var desired_dir_skel = skel_xf_inv.basis * desired_dir_world
-        # Direction désirée en local-space du parent
-        var desired_dir_parent = parent_pose_skel.basis.inverse() * desired_dir_skel
+        # ── 4. Rotation en skeleton-space (comme v1 qui marchait) ──
+        # Convertir la direction cible en skel-space
+        var desired_dir_skel = (skel_xf_inv.basis * (next - root_world)).normalized()
 
-        # Rotation de rest_dir → desired_dir (tout en local du parent)
-        var d = rest_dir.dot(desired_dir_parent)
+        # Rotation qui amène rest_dir_skel → desired_dir_skel
+        var d = rest_dir_skel.dot(desired_dir_skel)
         var rot: Quaternion
         if d < -0.9999:
-            # Anti-parallèle : rotation 180° autour d'un axe perpendiculaire
-            var perp = rest_dir.cross(Vector3.UP)
+            var perp = rest_dir_skel.cross(Vector3.UP)
             if perp.length() < 0.001:
-                perp = rest_dir.cross(Vector3.RIGHT)
+                perp = rest_dir_skel.cross(Vector3.RIGHT)
             rot = Quaternion(perp.normalized(), PI)
         else:
-            rot = Quaternion(rest_dir, desired_dir_parent)
+            rot = Quaternion(rest_dir_skel, desired_dir_skel)
 
-        # On applique en global-space : parent_global * new_local_transform
-        # (set_bone_local_pose_override n'existe pas en Godot 4.3)
-        var new_global_pose = parent_pose_skel * Transform3D(Basis(rot), rest_origin)
-        skel.set_bone_global_pose_override(bone_idx, new_global_pose, 1.0, true)
+        # Application: rot (skel-space) * parent_basis = nouvelle orientation de l'os
+        # Origin inchangé depuis gp (position correcte grâce à persistent=true)
+        var new_basis = Basis(rot) * parent_gp.basis
+        skel.set_bone_global_pose_override(bone_idx, Transform3D(new_basis, gp.origin), 1.0, true)
 
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
     var result = skel.get_bone_rest(bone_idx)

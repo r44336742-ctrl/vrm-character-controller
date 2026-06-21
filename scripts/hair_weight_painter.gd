@@ -117,9 +117,9 @@ func _paint_weights() -> void:
 			# - En dessous de root_y → gradient vers Hair bone (pointes)
 			var hair_weight: float = 0.0
 			if vert_pos.y < root_y:
-				# Gradient linéaire conservateur: max 45% d'influence aux pointes
+				# Gradient: max 65% d'influence aux pointes, racines restent sur Head
 				var progress = (root_y - vert_pos.y) / (root_y - y_min)
-				hair_weight = clampf(progress * 0.45, 0.0, 0.45)
+				hair_weight = clampf(pow(progress, 0.8) * 0.65, 0.0, 0.65)
 			
 			if hair_weight > 0.01 and closest_bone_idx >= 0:
 				var head_weight: float = 1.0 - hair_weight
