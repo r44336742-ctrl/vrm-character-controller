@@ -92,7 +92,7 @@ func get_height(px: float, pz: float) -> float:
     
     # Falaise plongeante vers l'océan
     if pz < cliff_z_start:
-        var drop = (cliff_z_start - pz) * 1.8 # Pente raide
+        var drop = (cliff_z_start - pz) * 1.0 # Pente plus douce
         # Ajouter du bruit sur la falaise pour qu'elle ne soit pas parfaitement lisse
         var cliff_noise = noise.get_noise_2d(px * 3.0, pz * 3.0) * 2.0
         h -= drop + cliff_noise

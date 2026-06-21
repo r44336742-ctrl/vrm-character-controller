@@ -40,5 +40,5 @@ func _ready() -> void:
     mesh_instance.material_override = mat
     
     # Très bas pour être dominé par la falaise
-    mesh_instance.position = Vector3(0, -18.0, -300)
+    mesh_instance.position = Vector3(0, -6.0, -300)
     add_child(mesh_instance)

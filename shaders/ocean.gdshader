@@ -14,9 +14,10 @@ uniform vec2 scroll_a = vec2(0.02, 0.02);
 uniform vec2 scroll_b = vec2(-0.015, 0.01);
 uniform float wave_scale = 0.08;
 
-// Houle de fond (grandes vagues douces)
-uniform vec4 wave1 = vec4(1.0, 0.5, 0.06, 60.0);
-uniform vec4 wave2 = vec4(0.8, 1.2, 0.04, 35.0);
+// Houle de fond (vagues plus fortes + 3ème vague croisée)
+uniform vec4 wave1 = vec4(1.0, 0.5, 0.12, 50.0);
+uniform vec4 wave2 = vec4(0.8, 1.2, 0.08, 30.0);
+uniform vec4 wave3 = vec4(-0.5, 1.0, 0.06, 20.0); // Vague croisée pour casser la répétition
 
 varying vec2 uv_a;
 varying vec2 uv_b;
@@ -45,6 +46,7 @@ void vertex() {
     vec3 p_offset = vec3(0.0);
     p_offset += get_gerstner_wave(wave1, VERTEX);
     p_offset += get_gerstner_wave(wave2, VERTEX);
+    p_offset += get_gerstner_wave(wave3, VERTEX);
     VERTEX += p_offset;
 }
 
