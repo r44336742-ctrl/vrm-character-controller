@@ -23,8 +23,9 @@ global uniform vec3 player_velocity;
 void vertex() {
     // ── Facteur de hauteur : 0 aux racines → 1 aux pointes (quadratique) ──
     vec4 world_pos = MODEL_MATRIX * vec4(VERTEX, 1.0);
+    // Falloff INVERSÉ : sommet du crâne (Y haut) = 0, pointes pendantes (Y bas) = 1
     float h = clamp(
-        (world_pos.y - hair_root_y) / max(hair_tip_y - hair_root_y, 0.01),
+        (hair_tip_y - world_pos.y) / max(hair_tip_y - hair_root_y, 0.01),
         0.0, 1.0
     );
     float falloff = h * h;
@@ -49,8 +50,8 @@ void vertex() {
     vec2 vel_xz    = player_velocity.xz;
     float speed    = length(vel_xz);
     // Tilt fort : walk visible, sprint très prononcé
-    // walk ≈ 3 m/s → 10cm   sprint ≈ 6 m/s → 35cm aux pointes
-    float tilt_mag = clamp(speed * speed * 0.012, 0.0, 0.35);
+    // walk ≈ 3 m/s → 4cm   sprint ≈ 6 m/s → 12cm aux pointes
+    float tilt_mag = clamp(speed * speed * 0.004, 0.0, 0.15);
     // Direction INVERSE du mouvement → les cheveux traînent derrière
     vec2 tilt_dir  = -normalize(vel_xz + vec2(0.0001));
     vec3 tilt      = vec3(tilt_dir.x, 0.0, tilt_dir.y) * tilt_mag * falloff;
