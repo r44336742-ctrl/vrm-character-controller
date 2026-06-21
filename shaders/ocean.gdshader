@@ -69,13 +69,7 @@ float hash13(vec3 p3) {
 }
 
 void fragment() {
-    // 1. GEOMETRIC NORMAL (Fixes the "sand dune" look by using true surface curvature)
-    vec3 dx = dFdx(VERTEX);
-    vec3 dy = dFdy(VERTEX);
-    vec3 geo_N = normalize(cross(dx, dy));
-    if (geo_N.y < 0.0) geo_N = -geo_N; // Ensure pointing up
-    
-    // 2. MICRO-NORMAL MAPS (Scrolling ripples)
+    // 1. MICRO-NORMAL MAPS (Scrolling ripples)
     vec2 uv1 = world_xz * 0.025 + TIME * vec2(0.015, -0.012);
     vec2 uv2 = world_xz * 0.05  + TIME * vec2(-0.014, -0.018);
     vec2 uv3 = world_xz * 0.12  + TIME * vec2(0.008, 0.022);
@@ -86,10 +80,12 @@ void fragment() {
     
     vec3 micro_n = normalize(n1 + n2 * 0.8 + n3 * 0.4);
     
-    // Combine geometric large waves with micro ripples
-    vec3 final_N = normalize(geo_N + micro_n * 0.35);
+    // Pour la macro-géométrie, on laisse Godot gérer ou on utilise NORMAL_MAP directement
+    // Assigner une normale View-Space dans NORMAL_MAP cassait tout. On utilise l'espace tangent classique.
+    NORMAL_MAP = micro_n * 0.5 + 0.5;
+    NORMAL_MAP_DEPTH = 1.0;
     
-    // 3. DEPTH & FOAM COLORING
+    // 2. DEPTH & FOAM COLORING
     float h = clamp(wave_height * 1.5, -1.0, 1.0) * 0.5 + 0.5;
     vec3 col = mix(albedo_deep, albedo_shallow, h);
     
@@ -97,52 +93,48 @@ void fragment() {
     float foam = smoothstep(0.65, 0.85, wave_height * 1.2 + foam_noise * 0.15);
     col = mix(col, vec3(0.15, 0.2, 0.35), foam * 0.6);
     
-    // 4. FRESNEL WATER REFLECTIVITY
-    vec3 V = normalize(VIEW);
-    float NdotV = max(dot(final_N, V), 0.0);
-    float fresnel = pow(1.0 - NdotV, 5.0);
-    fresnel = mix(0.02, 1.0, fresnel); // 0.02 = base water reflectivity
-    col *= (1.0 - fresnel * 0.8); // Darken body color where light passes through
-    
     ALBEDO = col;
     METALLIC = metallic;
     ROUGHNESS = mix(roughness, 0.6, foam * 0.5);
-    NORMAL_MAP = final_N * 0.5 + 0.5; // Output combined normal to lighting pipeline
-    NORMAL_MAP_DEPTH = 1.0;
 
-    // 5. HIGH-FREQUENCY GLITTER (Sparkling micro-facets)
-    vec3 L = normalize(moon_dir);
+    // 3. HIGH-FREQUENCY GLITTER (Sparkling micro-facets)
+    // Convertir la direction de la lune (World Space) en View Space pour les calculs de spéculaire
+    vec3 view_space_moon_dir = (VIEW_MATRIX * vec4(moon_dir, 0.0)).xyz;
+    vec3 L = normalize(view_space_moon_dir);
+    vec3 V = normalize(VIEW);
     vec3 H = normalize(V + L);
-    float NdotH = max(dot(final_N, H), 0.0);
     
-    // Extremely sharp specular lobe for tight moon reflection
+    // On doit utiliser NORMAL (qui est View Space et mis à jour par Godot après NORMAL_MAP) 
+    // mais dans fragment(), NORMAL n'inclut pas encore NORMAL_MAP sauf si on l'applique.
+    // On utilise une approximation View Space de la normale:
+    vec3 approx_N = normalize(TANGENT * micro_n.x + BINORMAL * micro_n.y + NORMAL * micro_n.z);
+    
+    float NdotH = max(dot(approx_N, H), 0.0);
     float spec_lobe = pow(NdotH, 2048.0);
     
-    // Scattered points in 3D space (moving slightly over time)
+    // Points éparpillés
     vec3 grid_pos = vec3(world_xz * 12.0, TIME * 2.5);
     vec3 cell = floor(grid_pos);
     float h_val = hash13(cell);
+    float active = step(0.92, h_val); // 8% des cellules
     
-    // Only 8% of grid cells contain a water droplet glint
-    float active = step(0.92, h_val);
-    
-    // Tight dot shape within the cell
     vec3 cell_pos = fract(grid_pos) - 0.5;
     float dist = length(cell_pos);
     float dot_shape = smoothstep(0.15, 0.0, dist);
     float points = dot_shape * active;
     
-    // Final glitter modulated by spec lobe
     float glitter = points * spec_lobe * 150.0;
 
-    // 6. EMISSION & BLOOM TRIGGER
-    // Broad, softer specular for the main moon path
+    // 4. EMISSION
     float broad_spec = pow(NdotH, 256.0) * 5.0 * (1.0 - foam);
     
     vec3 base_emission = vec3(0.002, 0.005, 0.01) * h;
     vec3 spec_emission = vec3(0.2, 0.35, 0.6) * broad_spec;
     vec3 glitter_emission = vec3(0.8, 0.95, 1.0) * glitter;
     
-    // Push past 1.0 to trigger ACES tonemapper and bloom
+    // Éviter les explosions de bloom
+    spec_emission = min(spec_emission, vec3(2.0));
+    glitter_emission = min(glitter_emission, vec3(5.0));
+    
     EMISSION = base_emission + spec_emission + glitter_emission;
 }
