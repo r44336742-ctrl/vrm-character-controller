@@ -11,7 +11,7 @@ func _ready() -> void:
     env.fog_enabled = true
     env.fog_mode = Environment.FOG_MODE_DEPTH
     env.fog_density = 0.015
-    env.fog_color = Color(0.05, 0.07, 0.12)
+    env.fog_light_color = Color(0.05, 0.07, 0.12)
     
     env.volumetric_fog_enabled = true
     env.volumetric_fog_density = 0.04
@@ -29,8 +29,8 @@ func _ready() -> void:
     
     # 2. Lumière de la Lune
     moon_light = DirectionalLight3D.new()
-    moon_light.energy = 0.4
-    moon_light.color = Color(0.6, 0.75, 1.0)
+    moon_light.light_energy = 0.4
+    moon_light.light_color = Color(0.6, 0.75, 1.0)
     moon_light.shadow_enabled = true
     moon_light.rotation_degrees = Vector3(-25, -40, 0)
     add_child(moon_light)
@@ -39,9 +39,9 @@ func _ready() -> void:
     var player = get_tree().get_first_node_in_group("player")
     if player:
         ghost_light = OmniLight3D.new()
-        ghost_light.color = Color(0.3, 0.4, 0.7)
-        ghost_light.energy = 0.6
-        ghost_light.range = 4.0
+        ghost_light.light_color = Color(0.3, 0.4, 0.7)
+        ghost_light.light_energy = 0.6
+        ghost_light.omni_range = 4.0
         player.add_child(ghost_light)
 
 func _process(delta: float) -> void:
@@ -49,4 +49,4 @@ func _process(delta: float) -> void:
     if ghost_light:
         var t = Time.get_ticks_msec() / 1000.0
         # Période 6s, amplitude 0.15 autour de 0.6
-        ghost_light.energy = 0.6 + sin(t * (2 * PI / 6.0)) * 0.15
+        ghost_light.light_energy = 0.6 + sin(t * (2 * PI / 6.0)) * 0.15

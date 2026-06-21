@@ -108,13 +108,13 @@ func _update_vrm_wind_physics() -> void:
             continue
             
         # La gravité par défaut est (0, -1, 0). On y ajoute le vent.
-        var wind_influence = wind * bone.get("stiffness_scale", 1.0) * 0.02
+        var stiffness = bone.get("stiffness_scale")
+        if stiffness == null: stiffness = 1.0
+        var wind_influence = wind * stiffness * 0.15 # Fortement boosté pour effet dramatique
         var target_gravity = Vector3(0, -1, 0) + wind_influence
         
-        if "gravity_dir" in bone:
-            bone.gravity_dir = target_gravity
-        elif "gravity" in bone:
-            bone.gravity = target_gravity
+        if "gravity_dir_default" in bone:
+            bone.gravity_dir_default = target_gravity
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
@@ -264,25 +264,28 @@ func _setup_hair_physics(skeleton: Skeleton3D) -> void:
     if sec_nodes.size() > 0:
         var vrm_sec = sec_nodes[0]
         
-        # Recherche de tous les VRMSpringBone
-        var bones = vrm_sec.find_children("*", "VRMSpringBone", true)
-        for bone in bones:
-            var name = bone.name.to_lower()
-            
-            if "skirt" in name or "dress" in name:
-                # Robe : plus lourde
-                bone.set("drag_force_scale", 0.6)
-                bone.set("stiffness_scale", 0.8)
-                bone.set("gravity_scale", 1.0)
-            elif "hair" in name or "sec" in name:
-                # Cheveux : plus légers et réactifs
-                bone.set("drag_force_scale", 0.2)
-                bone.set("stiffness_scale", 1.5)
-                bone.set("gravity_scale", 0.8)
-            else:
-                # Autres (accessoires)
-                bone.set("drag_force_scale", 0.4)
-                bone.set("stiffness_scale", 1.0)
-                bone.set("gravity_scale", 0.9)
+        if "spring_bones" in vrm_sec:
+            for bone in vrm_sec.spring_bones:
+                if not bone: continue
                 
-            vrm_spring_bones.append(bone)
+                var name = bone.resource_name.to_lower()
+                if name == "" and bone.joint_nodes.size() > 0:
+                    name = bone.joint_nodes[0].to_lower()
+                
+                if "skirt" in name or "dress" in name:
+                    # Robe : plus lourde
+                    bone.set("drag_force_scale", 0.6)
+                    bone.set("stiffness_scale", 0.8)
+                    bone.set("gravity_scale", 1.0)
+                elif "hair" in name or "sec" in name:
+                    # Cheveux : plus légers et réactifs
+                    bone.set("drag_force_scale", 0.2)
+                    bone.set("stiffness_scale", 1.5)
+                    bone.set("gravity_scale", 0.8)
+                else:
+                    # Autres (accessoires)
+                    bone.set("drag_force_scale", 0.4)
+                    bone.set("stiffness_scale", 1.0)
+                    bone.set("gravity_scale", 0.9)
+                    
+                vrm_spring_bones.append(bone)
