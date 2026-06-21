@@ -3,71 +3,64 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 uniform vec3 albedo_shallow : source_color = vec3(0.03, 0.07, 0.18);
 uniform vec3 albedo_deep    : source_color = vec3(0.01, 0.03, 0.08);
-uniform float metallic  = 0.05;
-uniform float roughness = 0.45;
+uniform float metallic  = 0.0;
+uniform float roughness = 0.1;
 
 uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
-
-// --- 5 VAGUES GERSTNER RÉALISTES ---
-// Directions désalignées pour éviter l'effet quadrillage (grid/rhombus pattern)
-// Steepness modéré pour des vagues réalistes sans chevauchement excessif
-uniform vec4 wA = vec4(1.0,   0.35, 0.18, 45.0);  // Houle dominante
-uniform vec4 wB = vec4(0.2,   1.0,  0.15, 30.0);  // Houle croisée
-uniform vec4 wC = vec4(-0.6,  0.8,  0.12, 18.0);  // Vague moyenne
-uniform vec4 wD = vec4(0.85, -0.4,  0.09, 11.0);  // Contre-vague
-uniform vec4 wE = vec4(-0.5, -0.9,  0.06,  7.0);  // Chop
+uniform vec3 moon_dir = normalize(vec3(-0.4, 0.6, -0.7));
 
 varying vec2 world_xz;
-varying float wave_height;
-
-vec3 gerstner(vec4 w, vec3 p, float t) {
-	float k = 6.28318 / w.w;
-	float c = sqrt(9.8 / k);
-	vec2  d = normalize(w.xy);
-	float f = k * (dot(d, p.xz) - c * t);
-	float a = w.z / k;
-	return vec3(d.x * a * cos(f),
-	            a * sin(f),
-	            d.y * a * cos(f));
-}
 
 void vertex() {
-	float t = TIME * 0.5;
+    // Océan plat (Point 1) : Plus de déplacement de sommets.
+    world_xz = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
+}
 
-	vec3 off = vec3(0.0);
-	off += gerstner(wA, VERTEX, t);
-	off += gerstner(wB, VERTEX, t);
-	off += gerstner(wC, VERTEX, t);
-	off += gerstner(wD, VERTEX, t);
-	off += gerstner(wE, VERTEX, t);
-
-	wave_height = off.y;
-	VERTEX += off;
-
-	world_xz = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
+float hash12(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 void fragment() {
-	vec2 uv1 = world_xz * 0.07 + TIME * vec2(0.04,  0.025);
-	vec2 uv2 = world_xz * 0.13 + TIME * vec2(-0.03, 0.02);
+    // 1. NORMALES FINES (Vagues uniquement via textures)
+    vec2 uv1 = world_xz * 0.04 + TIME * vec2(0.01, -0.008);
+    vec2 uv2 = world_xz * 0.08 + TIME * vec2(-0.007, -0.009);
+    vec3 n1 = texture(normalmap_a, uv1).rgb * 2.0 - 1.0;
+    vec3 n2 = texture(normalmap_b, uv2).rgb * 2.0 - 1.0;
+    vec3 micro_n = normalize(n1 + n2 * 0.7);
+    
+    vec3 final_N = normalize(vec3(micro_n.x, 1.0, micro_n.z)); // Toujours plat à grande échelle
+    
+    // 2. COULEUR & FRESNEL
+    vec3 col = mix(albedo_deep, albedo_shallow, 0.4);
+    vec3 V = normalize(VIEW);
+    float NdotV = max(dot(final_N, V), 0.0);
+    float fresnel = pow(1.0 - NdotV, 4.0);
+    col *= (1.0 - fresnel * 0.9);
+    
+    ALBEDO = col;
+    METALLIC = metallic;
+    ROUGHNESS = roughness;
+    NORMAL_MAP = final_N * 0.5 + 0.5;
+    NORMAL_MAP_DEPTH = 1.5;
 
-	vec3 n1 = texture(normalmap_a, uv1).rgb;
-	vec3 n2 = texture(normalmap_b, uv2).rgb;
-	vec3 nm = mix(n1, n2, 0.5);
-
-	float h = clamp(wave_height * 1.2, -1.0, 1.0) * 0.5 + 0.5;
-	vec3 col = mix(albedo_deep, albedo_shallow, h);
-
-	// Écume sur les crêtes pointues
-	float foam = smoothstep(0.35, 0.65, wave_height);
-	col = mix(col, vec3(0.18, 0.25, 0.4), foam * 0.6);
-
-	ALBEDO     = col;
-	METALLIC   = metallic;
-	ROUGHNESS  = mix(roughness, 0.75, foam * 0.4);
-	NORMAL_MAP = nm;
-	NORMAL_MAP_DEPTH = 2.0;
-
-	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h;
+    // 3. SPÉCULAIRE EN BANDES (Toon Water - Point 2)
+    vec3 L = normalize(moon_dir);
+    vec3 H = normalize(V + L);
+    float NdotH = max(dot(final_N, H), 0.0);
+    
+    // Quantifier la réflexion en 2 paliers nets
+    float spec_base = smoothstep(0.98, 0.985, NdotH); // Bande large
+    float spec_core = smoothstep(0.995, 0.999, NdotH); // Bande brillante
+    float toon_spec = spec_base * 0.5 + spec_core * 1.5;
+    
+    // 4. SCINTILLEMENT STYLISÉ
+    vec2 glitter_uv = world_xz * 20.0;
+    float noise_val = hash12(floor(glitter_uv));
+    float glitter_mask = step(0.95, noise_val);
+    float glitter_flicker = step(0.7, hash12(floor(glitter_uv + TIME * 2.0)));
+    float glitter = glitter_mask * glitter_flicker * spec_core * 2.0;
+    
+    // 5. ÉMISSION GLOW
+    EMISSION = vec3(0.4, 0.6, 0.9) * toon_spec + vec3(0.9, 0.95, 1.0) * glitter;
 }
