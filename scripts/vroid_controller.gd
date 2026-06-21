@@ -108,6 +108,9 @@ func _update_vrm_wind_physics() -> void:
         # Il faut donc transformer le vent global en vent local en le multipliant par l'inverse de la rotation.
         var local_wind = character_model.global_transform.basis.inverse() * global_wind
         
+        # On désactive temporairement les colliders pour vérifier s'ils bloquent les cheveux
+        vrm_sec.disable_colliders = true
+        
         # On booste fortement le vent pour qu'il surpasse la "stiffness" des cheveux
         vrm_sec.springbone_add_force = local_wind * 10.0
 
