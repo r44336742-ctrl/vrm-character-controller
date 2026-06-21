@@ -15,16 +15,152 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var anim_player: AnimationPlayer = null
 var character_model: Node = null
 
-# Références pour la physique custom des cheveux
+# ============================================================
+# PHYSIQUE DES CHEVEUX – Verlet Integration + Local Pose Override
+# Architecture : chaque os de cheveux est un pendule dont :
+#   - La RACINE suit l'os parent animé (Head)
+#   - La POINTE est simulée en verlet (gravité + vent + stiffness)
+#   - La ROTATION en local-space du parent est recalculée chaque frame
+# ============================================================
 var _hair_skeleton: Skeleton3D = null
-var _hair_bone_indices: Array[int] = []
-var _hair_bone_tails: Array[Vector3] = []  # position tail courante (world space)
-var _hair_bone_prev_tails: Array[Vector3] = []  # position tail precedente
+
+# Par os simulé :
+var _hair_bone_indices:    Array[int]     = []  # indice os dans le squelette
+var _hair_parent_indices:  Array[int]     = []  # indice de l'os parent
+var _hair_rest_origins:    Array[Vector3] = []  # position rest en local du parent
+var _hair_rest_dirs:       Array[Vector3] = []  # direction normalisée rest en local du parent
+var _hair_bone_lengths:    Array[float]   = []  # longueur physique du brin (m)
+var _hair_tail_cur:        Array[Vector3] = []  # position pointe courante (world)
+var _hair_tail_prv:        Array[Vector3] = []  # position pointe précédente (world)
 var _hair_initialized: bool = false
-const HAIR_STIFFNESS: float = 0.08
-const HAIR_DRAG: float = 0.10
-const HAIR_GRAVITY: float = 1.5
-const HAIR_LENGTH: float = 0.12  # Pendule plus court = déformation naturelle
+
+# Constantes physiques
+const H_DRAG:      float = 0.12   # Amortissement vélocité (plus haut = s'arrête plus vite)
+const H_STIFF:     float = 0.06   # Rappel vers position repos (plus haut = plus rigide)
+const H_GRAVITY:   float = 1.8    # Gravité m/s²
+const H_WIND_MUL:  float = 1.8    # Multiplicateur force du vent
+const H_INERTIA:   float = 0.25   # Inertie due au mouvement du personnage
+
+func _init_hair_physics(skeleton: Skeleton3D) -> void:
+    _hair_skeleton = skeleton
+    _hair_bone_indices.clear(); _hair_parent_indices.clear()
+    _hair_rest_origins.clear(); _hair_rest_dirs.clear()
+    _hair_bone_lengths.clear(); _hair_tail_cur.clear(); _hair_tail_prv.clear()
+
+    for i in range(skeleton.get_bone_count()):
+        var bname = skeleton.get_bone_name(i)
+        if not ("Hair" in bname or "Skirt" in bname):
+            continue
+
+        var parent_idx = skeleton.get_bone_parent(i)
+        if parent_idx < 0:
+            continue
+
+        var rest_local = skeleton.get_bone_rest(i)           # Transform en local du parent
+        var rest_origin = rest_local.origin                  # Position de l'os en local du parent
+        var bone_len = rest_origin.length()                  # Longueur physique du brin
+        if bone_len < 0.001:
+            continue
+        var rest_dir = rest_origin / bone_len                # Direction unitaire en local du parent
+
+        _hair_bone_indices.append(i)
+        _hair_parent_indices.append(parent_idx)
+        _hair_rest_origins.append(rest_origin)
+        _hair_rest_dirs.append(rest_dir)
+        _hair_bone_lengths.append(bone_len)
+
+        # Position initiale de la pointe = rest pose globale de l'os
+        var parent_global_rest = _get_bone_global_rest(skeleton, parent_idx)
+        var bone_global_rest = parent_global_rest * rest_local
+        # Pointe = origine de l'os + direction vers l'enfant (ou rest_dir * length pour os terminal)
+        var tail_skel = bone_global_rest.origin + bone_global_rest.basis * (rest_dir * bone_len)
+        var tail_world = skeleton.global_transform * tail_skel
+        _hair_tail_cur.append(tail_world)
+        _hair_tail_prv.append(tail_world)
+
+    _hair_initialized = true
+    print("[HairPhysics] Ready: ", _hair_bone_indices.size(), " bones simulated")
+
+func _update_hair_physics(delta: float) -> void:
+    if not _hair_initialized or _hair_skeleton == null or delta <= 0.0:
+        return
+
+    var skel = _hair_skeleton
+    var skel_xf = skel.global_transform
+    var skel_xf_inv = skel_xf.affine_inverse()
+    var wind_world = WindSystem.get_wind_at(global_position)
+    var dt2 = delta * delta
+
+    for idx in range(_hair_bone_indices.size()):
+        var bone_idx   = _hair_bone_indices[idx]
+        var parent_idx = _hair_parent_indices[idx]
+        var rest_dir   = _hair_rest_dirs[idx]
+        var rest_origin = _hair_rest_origins[idx]
+        var bone_len   = _hair_bone_lengths[idx]
+
+        # ── 1. Racine : suit l'animation du parent (ex: Head) ──
+        # get_bone_global_pose retourne la pose animée courante en skeleton-space
+        var parent_pose_skel = skel.get_bone_global_pose(parent_idx)
+        # Position de la racine de cet os en skeleton-space :
+        var root_skel_pos = parent_pose_skel * rest_origin
+        # En world-space :
+        var root_world = skel_xf * root_skel_pos
+
+        # ── 2. Position repos de la pointe en world-space ──
+        var rest_dir_world = skel_xf.basis * (parent_pose_skel.basis * rest_dir)
+        var rest_tail_world = root_world + rest_dir_world * bone_len
+
+        # ── 3. Verlet integration ──
+        var cur = _hair_tail_cur[idx]
+        var prv = _hair_tail_prv[idx]
+
+        var vel = (cur - prv) * (1.0 - H_DRAG)
+        var gravity_f  = Vector3(0.0, -H_GRAVITY, 0.0) * dt2
+        var wind_f     = wind_world * dt2 * H_WIND_MUL
+        var stiff_f    = (rest_tail_world - cur) * H_STIFF
+
+        var next = cur + vel + gravity_f + wind_f + stiff_f
+
+        # ── 4. Contrainte de longueur (pendule rigide) ──
+        var to_next = next - root_world
+        if to_next.length() > 0.001:
+            next = root_world + to_next.normalized() * bone_len
+
+        _hair_tail_prv[idx] = cur
+        _hair_tail_cur[idx] = next
+
+        # ── 5. Rotation locale ──
+        # Direction désirée en skeleton-space
+        var desired_dir_world = (next - root_world).normalized()
+        var desired_dir_skel = skel_xf_inv.basis * desired_dir_world
+        # Direction désirée en local-space du parent
+        var desired_dir_parent = parent_pose_skel.basis.inverse() * desired_dir_skel
+
+        # Rotation de rest_dir → desired_dir (tout en local du parent)
+        var d = rest_dir.dot(desired_dir_parent)
+        var rot: Quaternion
+        if d < -0.9999:
+            # Anti-parallèle : rotation 180° autour d'un axe perpendiculaire
+            var perp = rest_dir.cross(Vector3.UP)
+            if perp.length() < 0.001:
+                perp = rest_dir.cross(Vector3.RIGHT)
+            rot = Quaternion(perp.normalized(), PI)
+        else:
+            rot = Quaternion(rest_dir, desired_dir_parent)
+
+        # On applique en global-space : parent_global * new_local_transform
+        # (set_bone_local_pose_override n'existe pas en Godot 4.3)
+        var new_global_pose = parent_pose_skel * Transform3D(Basis(rot), rest_origin)
+        skel.set_bone_global_pose_override(bone_idx, new_global_pose, 1.0, true)
+
+func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
+    var result = skel.get_bone_rest(bone_idx)
+    var parent_idx = skel.get_bone_parent(bone_idx)
+    while parent_idx >= 0:
+        result = skel.get_bone_rest(parent_idx) * result
+        parent_idx = skel.get_bone_parent(parent_idx)
+    return result
+
 
 func _ready() -> void:
     add_to_group("player") # Requis pour Atmosphere et Particules
@@ -104,73 +240,7 @@ func _physics_process(delta: float) -> void:
     move_and_slide()
     _update_hair_physics(delta)
 
-func _init_hair_physics(skeleton: Skeleton3D) -> void:
-    _hair_skeleton = skeleton
-    _hair_bone_indices.clear()
-    _hair_bone_tails.clear()
-    _hair_bone_prev_tails.clear()
-    for i in range(skeleton.get_bone_count()):
-        var bname = skeleton.get_bone_name(i)
-        if "Hair" in bname or "Skirt" in bname:
-            _hair_bone_indices.append(i)
-            # Calculer la direction de repos REELLE de l'os (depuis sa rest pose globale)
-            var rest = _get_bone_global_rest(skeleton, i)
-            var world_origin = skeleton.global_transform * rest.origin
-            # La direction de repos = depuis l'os vers le bas naturel (sa rest direction)
-            var rest_dir_local = skeleton.get_bone_rest(i).origin.normalized()
-            if rest_dir_local.length() < 0.01:
-                rest_dir_local = Vector3(0, -1, 0)
-            var world_tail = world_origin + skeleton.global_transform.basis * (rest_dir_local * HAIR_LENGTH)
-            _hair_bone_tails.append(world_tail)
-            _hair_bone_prev_tails.append(world_tail)
-    _hair_initialized = true
-    print("[HairPhysics] Initialized with ", _hair_bone_indices.size(), " bones")
 
-func _update_hair_physics(delta: float) -> void:
-    if not _hair_initialized or _hair_skeleton == null:
-        return
-    var wind = WindSystem.get_wind_at(global_position)
-    for idx in range(_hair_bone_indices.size()):
-        var bone_idx = _hair_bone_indices[idx]
-        var gp = _hair_skeleton.get_bone_global_pose(bone_idx)
-        var bone_world = _hair_skeleton.global_transform * gp.origin
-        # Verlet integration
-        var cur = _hair_bone_tails[idx]
-        var prv = _hair_bone_prev_tails[idx]
-        var velocity = (cur - prv) * (1.0 - HAIR_DRAG)
-        var gravity_force = Vector3(0, -HAIR_GRAVITY, 0) * delta * delta
-        var wind_force = wind * delta * delta * 0.5
-        # Direction de repos REELLE de cet os
-        var rest_local = _hair_skeleton.get_bone_rest(bone_idx).origin.normalized()
-        if rest_local.length() < 0.01:
-            rest_local = Vector3(0, -1, 0)
-        var rest_world_dir = _hair_skeleton.global_transform.basis * rest_local
-        var rest_pos = bone_world + rest_world_dir * HAIR_LENGTH
-        var stiffness_force = (rest_pos - cur) * HAIR_STIFFNESS
-        var next = cur + velocity + gravity_force + wind_force + stiffness_force
-        # Contrainte longueur fixe
-        var dir = (next - bone_world).normalized()
-        next = bone_world + dir * HAIR_LENGTH
-        _hair_bone_prev_tails[idx] = cur
-        _hair_bone_tails[idx] = next
-        # Rotation: amener rest_local_dir vers la direction cible en local
-        var local_next = _hair_skeleton.global_transform.affine_inverse() * next
-        var local_bone = gp.origin
-        var target_local_dir = (local_next - local_bone).normalized()
-        # rest_local = direction de repos locale de l'os
-        if rest_local.length() > 0.01 and target_local_dir.length() > 0.01:
-            var rot = Quaternion(rest_local, target_local_dir)
-            var new_pose = gp
-            new_pose.basis = Basis(rot) * Basis(gp.basis.get_rotation_quaternion())
-            _hair_skeleton.set_bone_global_pose_override(bone_idx, new_pose, 1.0, true)
-
-func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
-    var result = skel.get_bone_rest(bone_idx)
-    var parent_idx = skel.get_bone_parent(bone_idx)
-    while parent_idx >= 0:
-        result = skel.get_bone_rest(parent_idx) * result
-        parent_idx = skel.get_bone_parent(parent_idx)
-    return result
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
