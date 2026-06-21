@@ -194,6 +194,8 @@ func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
 
 func _ready() -> void:
     add_to_group("player") # Requis pour Atmosphere et Particules
+    # Enregistrer le paramètre global pour le shader hair
+    RenderingServer.global_shader_parameter_add("player_velocity", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
     character_model = $ModelPivot.get_child(0)
     if character_model:
         character_model.rotation.y = PI
@@ -270,10 +272,9 @@ func _physics_process(delta: float) -> void:
     move_and_slide()
 
 func _process(delta: float) -> void:
+    # Passer la vélocité au shader Hair (inclinaison au mouvement)
+    RenderingServer.global_shader_parameter_set("player_velocity", velocity)
     # Hair physics DOIT tourner dans _process, APRÈS l'AnimationPlayer
-    # (sinon l'animation écrase notre override)
-    if _debug_frame == 0:
-        print("[DIAG] _process() is running, calling _update_hair_physics")
     _update_hair_physics(delta)
 
 
