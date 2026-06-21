@@ -122,23 +122,8 @@ func _ready() -> void:
 	# --- LAMPES DE RUE ---
 	_generate_lanterns()
 	
-	# --- EFFETS D'AMBIANCE (Brume & Chauves-souris) ---
-	_setup_ambient_effects()
-
-func _setup_ambient_effects() -> void:
-	# 1. Brume Rampante
-	var mist = GPUParticles3D.new()
-	var mist_script = load("res://scripts/mist_system.gd")
-	if mist_script:
-		mist.set_script(mist_script)
-		get_parent().get_node("EnvironmentAssets").add_child(mist)
-	
-	# 2. Chauves-souris
-	var bats = Node3D.new()
-	var bats_script = load("res://scripts/bat_spawner.gd")
-	if bats_script:
-		bats.set_script(bats_script)
-		get_parent().get_node("EnvironmentAssets").add_child(bats)
+	# --- LAMPES DE RUE ---
+	_generate_lanterns()
 
 func _generate_stars() -> void:
 	# 3 types de couleur d'étoiles
