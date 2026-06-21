@@ -60,4 +60,8 @@ void fragment() {
     ROUGHNESS = roughness;
     NORMAL_MAP = mix(n_a, n_b, 0.5); // Fusion des normales
     NORMAL_MAP_DEPTH = 1.5; // Accentuer le relief de l'eau
+    
+    // Contraste rouge sur les crêtes des micro-vagues
+    float crest = smoothstep(0.55, 0.7, (n_a.x + n_b.x) * 0.5);
+    EMISSION = vec3(0.8, 0.0, 0.0) * crest;
 }
