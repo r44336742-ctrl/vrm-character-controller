@@ -12,28 +12,34 @@ uniform vec4 wave3 = vec4(-0.5, 1.0, 0.06, 20.0);
 varying float wave_height;
 varying vec3 world_pos_v;
 
-// --- BRUIT PROCÉDURAL (pas de texture nécessaire) ---
-float hash2D(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+// --- BRUIT LISSE (quintic interpolation, pas de grille visible) ---
+vec2 hash22(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(p) * 43758.5453) * 2.0 - 1.0;
 }
 
-float noise2D(vec2 p) {
+float gradient_noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f); // smoothstep
-    float a = hash2D(i);
-    float b = hash2D(i + vec2(1.0, 0.0));
-    float c = hash2D(i + vec2(0.0, 1.0));
-    float d = hash2D(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    
+    // Quintic interpolation (ultra-lisse, pas de discontinuité)
+    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    
+    float a = dot(hash22(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0));
+    float b = dot(hash22(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+    float c = dot(hash22(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+    float d = dot(hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
+    
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 0.5 + 0.5;
 }
 
 float fbm(vec2 p) {
     float val = 0.0;
     float amp = 0.5;
+    mat2 rot = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)); // Rotation entre octaves
     for (int i = 0; i < 4; i++) {
-        val += amp * noise2D(p);
-        p *= 2.1;
+        val += amp * gradient_noise(p);
+        p = rot * p * 2.1;
         amp *= 0.45;
     }
     return val;
@@ -63,61 +69,54 @@ void vertex() {
 }
 
 void fragment() {
-    // --- BRUIT DE SURFACE PROCÉDURAL (remplace les normal maps) ---
     vec2 wpos = world_pos_v.xz;
     
-    // Deux couches de bruit qui scrollent dans des directions différentes
-    vec2 uv1 = wpos * 0.15 + TIME * vec2(0.08, 0.06);
-    vec2 uv2 = wpos * 0.22 + TIME * vec2(-0.05, 0.04);
-    vec2 uv3 = wpos * 0.4 + TIME * vec2(0.03, -0.07); // Détail fin
+    // Deux couches de bruit lisse qui scrollent
+    vec2 uv1 = wpos * 0.08 + TIME * vec2(0.06, 0.04);
+    vec2 uv2 = wpos * 0.12 + TIME * vec2(-0.04, 0.03);
     
     float n1 = fbm(uv1);
     float n2 = fbm(uv2);
-    float n3 = noise2D(uv3); // Couche fine
     
-    // Combiner en perturbation de normale (dérivées finies)
-    float eps = 0.1;
-    float n1_dx = fbm(uv1 + vec2(eps, 0.0)) - n1;
-    float n1_dz = fbm(uv1 + vec2(0.0, eps)) - n1;
-    float n2_dx = fbm(uv2 + vec2(eps, 0.0)) - n2;
-    float n2_dz = fbm(uv2 + vec2(0.0, eps)) - n2;
-    float n3_dx = noise2D(uv3 + vec2(eps, 0.0)) - n3;
-    float n3_dz = noise2D(uv3 + vec2(0.0, eps)) - n3;
+    // Dérivées pour la perturbation de normales (petit epsilon)
+    float eps = 0.02;
+    float n1_dx = fbm(uv1 + vec2(eps, 0.0)) - fbm(uv1 - vec2(eps, 0.0));
+    float n1_dz = fbm(uv1 + vec2(0.0, eps)) - fbm(uv1 - vec2(0.0, eps));
+    float n2_dx = fbm(uv2 + vec2(eps, 0.0)) - fbm(uv2 - vec2(eps, 0.0));
+    float n2_dz = fbm(uv2 + vec2(0.0, eps)) - fbm(uv2 - vec2(0.0, eps));
     
-    // Perturbation de normale composite
-    float dx = (n1_dx + n2_dx * 0.7 + n3_dx * 0.3) * 8.0;
-    float dz = (n1_dz + n2_dz * 0.7 + n3_dz * 0.3) * 8.0;
+    // Perturbation douce (pas trop agressive)
+    float dx = (n1_dx + n2_dx * 0.6) * 3.0;
+    float dz = (n1_dz + n2_dz * 0.6) * 3.0;
     vec3 perturbed_normal = normalize(vec3(-dx, 1.0, -dz));
     
     // --- COULEUR ---
     float depth_var = smoothstep(-0.5, 0.5, wave_height);
     vec3 ocean_col = mix(albedo * 0.7, albedo * 1.4, depth_var);
     
-    // Variation de couleur par le bruit (casse l'uniformité)
-    float color_noise = (n1 + n2) * 0.5;
-    ocean_col *= mix(0.85, 1.15, color_noise);
+    // Variation de couleur lisse
+    float color_var = (n1 + n2) * 0.5;
+    ocean_col *= mix(0.9, 1.1, color_var);
     
-    // Écume sur les crêtes
+    // Écume
     float foam = smoothstep(0.5, 0.9, wave_height);
-    ocean_col = mix(ocean_col, vec3(0.12, 0.18, 0.28), foam * 0.5);
+    ocean_col = mix(ocean_col, vec3(0.12, 0.18, 0.28), foam * 0.4);
     
     ALBEDO = ocean_col;
     METALLIC = metallic;
     ROUGHNESS = mix(roughness, 0.5, foam * 0.5);
     NORMAL = perturbed_normal;
     
-    // --- EMISSION : Détail visible PARTOUT ---
-    // Le bruit de surface crée le détail dans l'émission directement
-    float surface_detail = (n1 * 0.5 + n2 * 0.3 + n3 * 0.2);
+    // --- EMISSION : Détail visible partout ---
+    float surface_detail = color_var;
     
-    // Fresnel : bords des vagues brillent
     float fresnel = 1.0 - abs(dot(normalize(VIEW), perturbed_normal));
     fresnel = pow(fresnel, 2.0);
     
     vec3 base_emit = vec3(0.015, 0.025, 0.07);
-    vec3 detail_emit = vec3(0.02, 0.03, 0.06) * surface_detail;
-    vec3 fresnel_emit = vec3(0.015, 0.025, 0.05) * fresnel;
-    vec3 crest_emit = vec3(0.02, 0.03, 0.05) * depth_var;
+    vec3 detail_emit = vec3(0.015, 0.025, 0.05) * surface_detail;
+    vec3 fresnel_emit = vec3(0.01, 0.02, 0.04) * fresnel;
+    vec3 crest_emit = vec3(0.015, 0.025, 0.04) * depth_var;
     
     EMISSION = base_emit + detail_emit + fresnel_emit + crest_emit;
 }
