@@ -30,11 +30,7 @@ func _ready() -> void:
 	env.fog_density = 0.002
 	env.fog_light_color = Color(0.03, 0.05, 0.12)
 	
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.015
-	env.volumetric_fog_albedo = Color(0.2, 0.35, 0.6)
-	env.volumetric_fog_emission = Color(0.02, 0.04, 0.1)
-	env.volumetric_fog_length = 250.0
+	env.volumetric_fog_enabled = false
 	
 	# --- POST-PROCESSING ---
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
