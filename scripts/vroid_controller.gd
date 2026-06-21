@@ -35,11 +35,11 @@ var _hair_tail_prv:        Array[Vector3] = []  # position pointe précédente (
 var _hair_initialized: bool = false
 
 # Constantes physiques
-const H_DRAG:      float = 0.12   # Amortissement vélocité (plus haut = s'arrête plus vite)
-const H_STIFF:     float = 0.06   # Rappel vers position repos (plus haut = plus rigide)
-const H_GRAVITY:   float = 1.8    # Gravité m/s²
-const H_WIND_MUL:  float = 1.8    # Multiplicateur force du vent
-const H_INERTIA:   float = 0.25   # Inertie due au mouvement du personnage
+const H_DRAG:      float = 0.06   # Très faible = oscille longtemps
+const H_STIFF:     float = 0.03   # Très souple = peu de rappel
+const H_GRAVITY:   float = 3.0    # Gravité forte = mèches tombent
+const H_WIND_MUL:  float = 5.0    # Vent très fort = mouvement visible
+const H_INERTIA:   float = 0.25
 
 func _init_hair_physics(skeleton: Skeleton3D) -> void:
     _hair_skeleton = skeleton
@@ -95,7 +95,7 @@ func _update_hair_physics(delta: float) -> void:
         var bone_idx   = _hair_bone_indices[idx]
         var parent_idx = _hair_parent_indices[idx]
         var rest_dir   = _hair_rest_dirs[idx]        # direction repos en parent-local space
-        var bone_len   = minf(_hair_bone_lengths[idx], 0.12)  # cap 12cm pour angles visibles
+        var bone_len   = minf(_hair_bone_lengths[idx], 0.18)  # cap 18cm pour ampleur visible
 
         # ── 1. Racine via gp.origin (persistent=true garde la pos correcte) ──
         var gp = skel.get_bone_global_pose(bone_idx)
