@@ -100,7 +100,7 @@ class SpringBoneRuntimeState:
 			var pos: Vector3
 			if joint_nodes[id + 1].is_empty():
 				var delta: Vector3 = skel.get_bone_rest(bone_idx).origin
-				pos = delta.normalized() * 0.07
+				pos = delta.normalized() * 0.4  # Extended from 0.07 for visible hair sway on single-bone chains
 			else:
 				var first_child: int = skel.find_bone(joint_nodes[id + 1])
 				var local_position: Vector3 = skel.get_bone_rest(first_child).origin

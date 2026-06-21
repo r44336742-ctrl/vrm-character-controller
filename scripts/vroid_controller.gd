@@ -104,32 +104,11 @@ func _update_vrm_wind_physics() -> void:
         var vrm_sec = sec_nodes[0]
         var global_wind = WindSystem.get_wind_at(global_position)
         
-        # springbone_add_force est appliqué en LOCAL space par godot-vrm.
-        # Il faut donc transformer le vent global en vent local en le multipliant par l'inverse de la rotation.
+        # Transformer le vent global en vent local au personnage
         var local_wind = character_model.global_transform.basis.inverse() * global_wind
         
-        # On désactive temporairement les colliders pour vérifier s'ils bloquent les cheveux
-        vrm_sec.disable_colliders = true
-        vrm_sec.set_process(false)
-        vrm_sec.set_physics_process(false)
-        vrm_sec.update_in_editor = false
-        
-        var skeleton = character_model.find_children("*", "Skeleton3D", true)[0]
-        # Désactive le SkeletonModifier3D interne de godot-vrm !
-        var mods = skeleton.find_children("*", "SkeletonModifier3D", true)
-        for m in mods:
-            m.active = false
-            
-        # TEST EXTRÊME : On force la rotation des os des cheveux manuellement
-        var time = Time.get_ticks_msec() / 1000.0
-        for i in range(skeleton.get_bone_count()):
-            var bname = skeleton.get_bone_name(i).to_lower()
-            if "hair" in bname:
-                var pose = skeleton.get_bone_pose(i)
-                # Fait tourner l'os de 45 degrés d'avant en arrière
-                pose.basis = Basis(Vector3(1, 0, 0), sin(time * 15.0) * 1.5)
-                # Important: set_bone_global_pose_override force la position !
-                skeleton.set_bone_global_pose_override(i, skeleton.get_bone_global_pose(skeleton.get_bone_parent(i)) * pose, 1.0, true)
+        # Appliquer la force du vent via l'API native de godot-vrm
+        vrm_sec.springbone_add_force = local_wind * 5.0
 
 # --- FONCTIONS DE RETARGETING (Robustesse Absolue) ---
 
