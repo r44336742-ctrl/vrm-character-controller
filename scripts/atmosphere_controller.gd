@@ -93,6 +93,9 @@ func _ready() -> void:
 	if moon_shader:
 		var moon_mat = ShaderMaterial.new()
 		moon_mat.shader = moon_shader
+		var tex = load("res://assets/textures/moon.png")
+		if tex:
+			moon_mat.set_shader_parameter("moon_texture", tex)
 		moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
 		moon_mat.set_shader_parameter("glow_intensity", 3.5)
 		moon_mesh_inst.material_override = moon_mat
