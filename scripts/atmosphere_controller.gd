@@ -49,9 +49,8 @@ func _ready() -> void:
 	env.adjustment_contrast = 1.1
 	
 	# --- SSAO : Occlusion ambiante pour la profondeur ---
-	env.ssao_enabled = true
-	env.ssao_radius = 2.0
-	env.ssao_intensity = 1.5
+	# OPTIMIZATION: Disabled. Grass rendering is too dense and stylized doesn't need it.
+	env.ssao_enabled = false
 	
 	world_env = WorldEnvironment.new()
 	world_env.environment = env
@@ -63,6 +62,7 @@ func _ready() -> void:
 	moon_light.light_color = Color(0.6, 0.75, 1.0)
 	moon_light.shadow_enabled = true
 	moon_light.shadow_bias = 0.02
+	moon_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	moon_light.shadow_normal_bias = 1.0
 	moon_light.shadow_opacity = 0.85
 	moon_light.rotation_degrees = Vector3(-35, -30, 0) # NW → SE

@@ -227,11 +227,14 @@ func generate_grass() -> void:
 		
 	print("TerrainGenerator: Grass generated with %d chunks and %d instances." % [chunks.size(), valid_positions.size()])
 
+var player_ref: Node3D
+
 func _process(delta: float) -> void:
 	if grass_material:
-		var player = get_tree().get_first_node_in_group("player")
-		if player:
-			grass_material.set_shader_parameter("player_position", player.global_position)
+		if not player_ref:
+			player_ref = get_tree().get_first_node_in_group("player") as Node3D
+		if player_ref:
+			grass_material.set_shader_parameter("player_position", player_ref.global_position)
 
 func get_height(px: float, pz: float) -> float:
 	var h = noise.get_noise_2d(px, pz) * 6.0 
