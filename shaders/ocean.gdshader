@@ -55,8 +55,10 @@ void fragment() {
 	vec2 uv1 = world_xz * 0.07 + TIME * vec2(0.04,  0.025);
 	vec2 uv2 = world_xz * 0.13 + TIME * vec2(-0.03, 0.02);
 
-	vec3 n1 = texture(normalmap_a, uv1).rgb;
-	vec3 n2 = texture(normalmap_b, uv2).rgb;
+	// On force la lecture de la texture à pleine résolution partout (Mipmap 0.0)
+	// Cela garantit que les détails des vagues ne disparaissent jamais au loin !
+	vec3 n1 = textureLod(normalmap_a, uv1, 0.0).rgb;
+	vec3 n2 = textureLod(normalmap_b, uv2, 0.0).rgb;
 	vec3 nm = mix(n1, n2, 0.5);
 
 	float h = clamp(wave_height * 1.2, -1.0, 1.0) * 0.5 + 0.5;
@@ -68,36 +70,17 @@ void fragment() {
 
 	ALBEDO     = col;
 	METALLIC   = metallic;
-	ROUGHNESS  = mix(roughness, 0.75, foam * 0.4);
-	SPECULAR   = 0.05; // Réduire le reflet "logique" au minimum
+	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
+	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
+	SPECULAR   = 0.8; // Reflet spéculaire très fort pour bien capter la lune
 	NORMAL_MAP = nm;
-	NORMAL_MAP_DEPTH = 2.0;
-
-	// --- REFLET MAGIQUE "PARTOUT" (Contre la physique) ---
-	// Utiliser textureLod avec un niveau de mipmap 0.0 force la lecture de la texture
-	// en pleine résolution, même au loin. Cela empêche le lissage par la distance !
-	vec3 raw_n1 = textureLod(normalmap_a, uv1, 0.0).rgb;
-	vec3 raw_n2 = textureLod(normalmap_b, uv2, 0.0).rgb;
 	
-	// Décompresser les normales de [0, 1] vers [-1, 1]
-	vec3 un1 = raw_n1 * 2.0 - 1.0;
-	vec3 un2 = raw_n2 * 2.0 - 1.0;
-	
-	// 1. Scintillements intenses (paillettes)
-	float s1 = smoothstep(0.1, 0.4, abs(un1.x));
-	float s2 = smoothstep(0.1, 0.4, abs(un1.y));
-	float s3 = smoothstep(0.1, 0.3, abs(un2.x));
-	float s4 = smoothstep(0.1, 0.3, abs(un2.y));
-	float magic_sparkles = (s1 + s2 + s3 + s4) * 0.4;
+	// En augmentant énormément la profondeur de la normale (bumpiness),
+	// on force la lumière de la lune à s'accrocher sur les côtés des vagues.
+	// Cela "éclate" naturellement le reflet spéculaire pour le rendre super large
+	// et créer des milliers de paillettes réalistes sur toute la mer !
+	NORMAL_MAP_DEPTH = 5.0;
 
-	// 2. Reflet élargi (soft glow sur les pentes des vagues)
-	// On utilise les normales brutes (sans mipmap) pour que le reflet ne disparaisse pas au loin !
-	vec3 raw_nm = mix(raw_n1, raw_n2, 0.5);
-	vec3 un_mix = normalize(raw_nm * 2.0 - 1.0);
-	float wave_slope = 1.0 - un_mix.z; // 0 quand plat, >0 quand pentu
-	float wide_glint = smoothstep(0.01, 0.15, wave_slope) * 0.5;
-
-	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h 
-	           + (vec3(0.6, 0.8, 1.0) * magic_sparkles) 
-	           + (vec3(0.2, 0.4, 0.7) * wide_glint);
+	// Émission de base très légère pour l'ambiance nocturne de l'eau
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
 }
