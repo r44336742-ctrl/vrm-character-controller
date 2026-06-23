@@ -64,37 +64,140 @@ func _ready() -> void:
     mesh_instance.material_override = mat
     add_child(mesh_instance)
     
-    # 4. Create optimized collision (HeightMapShape3D)
-    var static_body = StaticBody3D.new()
-    var coll_shape = CollisionShape3D.new()
-    var height_shape = HeightMapShape3D.new()
-    height_shape.map_width = verts_count
-    height_shape.map_depth = verts_count
-    height_shape.map_data = height_data
-    coll_shape.shape = height_shape
-    static_body.add_child(coll_shape)
-    add_child(static_body)
-    
-    print("TerrainGenerator: Done.")
+	# 4. Create optimized collision (HeightMapShape3D)
+	var static_body = StaticBody3D.new()
+	var coll_shape = CollisionShape3D.new()
+	var height_shape = HeightMapShape3D.new()
+	height_shape.map_width = verts_count
+	height_shape.map_depth = verts_count
+	height_shape.map_data = height_data
+	coll_shape.shape = height_shape
+	static_body.add_child(coll_shape)
+	add_child(static_body)
+	
+	print("TerrainGenerator: Done.")
+	
+	# 5. Generate Grass
+	generate_grass()
+
+var grass_multimesh: MultiMeshInstance3D
+
+func generate_grass() -> void:
+	print("TerrainGenerator: Generating grass...")
+	
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	
+	var width = 0.6
+	var height = 0.8
+	var segments = 3
+	
+	for rot in [0.0, PI / 2.0]:
+		var dir_x = cos(rot) * width / 2.0
+		var dir_z = sin(rot) * width / 2.0
+		
+		var v_start = st.get_vertex_count()
+		
+		for i in range(segments + 1):
+			var t = float(i) / segments
+			var y = t * height
+			
+			st.set_uv(Vector2(0.0, t))
+			st.add_vertex(Vector3(-dir_x, y, -dir_z))
+			
+			st.set_uv(Vector2(1.0, t))
+			st.add_vertex(Vector3(dir_x, y, dir_z))
+			
+		for i in range(segments):
+			var base = v_start + i * 2
+			st.add_index(base)
+			st.add_index(base + 1)
+			st.add_index(base + 2)
+			st.add_index(base + 1)
+			st.add_index(base + 3)
+			st.add_index(base + 2)
+			
+			st.add_index(base)
+			st.add_index(base + 2)
+			st.add_index(base + 1)
+			st.add_index(base + 1)
+			st.add_index(base + 2)
+			st.add_index(base + 3)
+
+	st.generate_normals()
+	st.generate_tangents()
+	var grass_mesh = st.commit()
+	
+	var multimesh = MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = grass_mesh
+	
+	var instances = 35000
+	var valid_positions = []
+	
+	for i in range(60000):
+		var px = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
+		var pz = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
+		
+		if pz < cliff_z_start + 5.0:
+			continue
+			
+		var closest_z = clamp(pz, -30.0, 50.0)
+		var dist_to_estate = Vector2(px, pz - closest_z).length()
+		
+		if dist_to_estate < 25.0:
+			continue
+			
+		var y = get_height(px, pz)
+		if y > -2.0:
+			valid_positions.append(Vector3(px, y, pz))
+			
+		if valid_positions.size() >= instances:
+			break
+			
+	multimesh.instance_count = valid_positions.size()
+	
+	for i in range(valid_positions.size()):
+		var pos = valid_positions[i]
+		var transform = Transform3D()
+		transform = transform.rotated_local(Vector3.UP, randf() * PI * 2.0)
+		var scale = randf_range(0.7, 1.4)
+		transform = transform.scaled_local(Vector3(scale, scale, scale))
+		transform.origin = pos
+		multimesh.set_instance_transform(i, transform)
+		
+	grass_multimesh = MultiMeshInstance3D.new()
+	grass_multimesh.multimesh = multimesh
+	
+	var grass_mat = ShaderMaterial.new()
+	grass_mat.shader = load("res://shaders/grass.gdshader")
+	grass_multimesh.material_override = grass_mat
+	
+	# Grass casts no shadows to save performance on 35k instances
+	grass_multimesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	
+	add_child(grass_multimesh)
+	print("TerrainGenerator: Grass generated with %d instances." % multimesh.instance_count)
+
+func _process(delta: float) -> void:
+	if grass_multimesh:
+		var player = get_tree().get_first_node_in_group("player")
+		if player and grass_multimesh.material_override:
+			grass_multimesh.material_override.set_shader_parameter("player_position", player.global_position)
 
 func get_height(px: float, pz: float) -> float:
-    # Bruit de base (collines légères)
-    var h = noise.get_noise_2d(px, pz) * 6.0 
-    
-    # Zone plate en forme de gélule pour le domaine (manoir + allée + portail)
-    # L'axe central va de Z = -30 (derrière manoir) à Z = 50 (près du portail)
-    var closest_z = clamp(pz, -30.0, 50.0)
-    var dist_to_estate = Vector2(px, pz - closest_z).length()
-    
-    if dist_to_estate < 40.0:
-        var blend = smoothstep(20.0, 40.0, dist_to_estate)
-        h = lerp(0.0, h, blend) # Aplanir vers 0 (Y=0)
-    
-    # Falaise plongeante vers l'océan
-    if pz < cliff_z_start:
-        var drop = (cliff_z_start - pz) * 1.0 # Pente plus douce
-        # Ajouter du bruit sur la falaise pour qu'elle ne soit pas parfaitement lisse
-        var cliff_noise = noise.get_noise_2d(px * 3.0, pz * 3.0) * 2.0
-        h -= drop + cliff_noise
-        
-    return h
+	var h = noise.get_noise_2d(px, pz) * 6.0 
+	
+	var closest_z = clamp(pz, -30.0, 50.0)
+	var dist_to_estate = Vector2(px, pz - closest_z).length()
+	
+	if dist_to_estate < 40.0:
+		var blend = smoothstep(20.0, 40.0, dist_to_estate)
+		h = lerp(0.0, h, blend)
+	
+	if pz < cliff_z_start:
+		var drop = (cliff_z_start - pz) * 1.0 
+		var cliff_noise = noise.get_noise_2d(px * 3.0, pz * 3.0) * 2.0
+		h -= drop + cliff_noise
+		
+	return h
