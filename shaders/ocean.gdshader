@@ -9,14 +9,15 @@ uniform float roughness = 0.45;
 uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
-// Longueurs d'onde GIGANTESQUES pour détruire le motif "damier" au loin !
-// On a divisé la pente (z) par 15 pour garder exactement la même hauteur de vague qu'avant !
-uniform vec4 wA = vec4( 1.000,  0.000, 0.0107, 915.0);
-uniform vec4 wB = vec4(-0.737,  0.675, 0.0093, 645.0);
-uniform vec4 wC = vec4( 0.087, -0.996, 0.0080, 435.0);
-uniform vec4 wD = vec4( 0.605,  0.795, 0.0060, 285.0);
-uniform vec4 wE = vec4(-0.983, -0.183, 0.0040, 165.0);
-uniform vec4 wF = vec4( 0.843, -0.536, 0.0026, 105.0);
+// --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
+// Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
+// On restaure les longueurs d'ondes originales pour retrouver les belles vagues asymétriques !
+uniform vec4 wA = vec4( 1.000,  0.000, 0.16, 61.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 0.14, 43.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 0.12, 29.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 0.09, 19.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.06, 11.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.04,  7.0);
 
 varying vec2 world_xz;
 varying float wave_height;
@@ -36,13 +37,19 @@ void vertex() {
 	float t = TIME * 0.4; // Légèrement ralenti pour donner un effet de masse d'eau lourde
 
 	vec3 off = vec3(0.0);
-	// Ajout de phases asymétriques pour décaler les vagues
-	off += gerstner(wA, 0.00, VERTEX, t);
-	off += gerstner(wB, 1.23, VERTEX, t);
-	off += gerstner(wC, 2.71, VERTEX, t);
-	off += gerstner(wD, 3.14, VERTEX, t);
-	off += gerstner(wE, 5.05, VERTEX, t);
-	off += gerstner(wF, 0.88, VERTEX, t);
+	
+	// Perturbation spatiale pour casser définitivement le "damier" (checkerboard)
+	// On utilise des sinus avec des fréquences très basses et irrationnelles pour déformer la phase.
+	float distortion = sin(VERTEX.x * 0.00314 + VERTEX.z * 0.00271) * 2.0 
+	                 + cos(VERTEX.x * 0.00192 - VERTEX.z * 0.00412) * 1.5;
+
+	// Ajout de phases asymétriques pour décaler les vagues + la distorsion aléatoire
+	off += gerstner(wA, 0.00 + distortion, VERTEX, t);
+	off += gerstner(wB, 1.23 - distortion * 0.8, VERTEX, t);
+	off += gerstner(wC, 2.71 + distortion * 1.2, VERTEX, t);
+	off += gerstner(wD, 3.14 - distortion, VERTEX, t);
+	off += gerstner(wE, 5.05 + distortion * 0.5, VERTEX, t);
+	off += gerstner(wF, 0.88 - distortion * 1.5, VERTEX, t);
 
 	wave_height = off.y;
 	VERTEX += off;
