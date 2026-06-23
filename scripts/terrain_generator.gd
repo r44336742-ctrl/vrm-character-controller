@@ -88,11 +88,11 @@ func generate_grass() -> void:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	var blades_per_clump = 12
-	var max_height = 0.8
-	var min_height = 0.4
+	var blades_per_clump = 15
+	var max_height = 0.85
+	var min_height = 0.45
 	var segments = 3
-	var base_width = 0.04
+	var base_width = 0.06
 	var v_count = 0
 	
 	# Generate a single clump of grass at origin (0,0,0)
@@ -100,7 +100,7 @@ func generate_grass() -> void:
 		# Random parameters per blade
 		var angle = (float(b) / blades_per_clump) * PI * 2.0 + randf_range(-0.3, 0.3)
 		var h = randf_range(min_height, max_height)
-		var curve_amount = randf_range(0.15, 0.45) # How much it leans out
+		var curve_amount = randf_range(0.25, 0.6) # Leans out much more for volume
 		
 		var dir_x = cos(angle)
 		var dir_z = sin(angle)
@@ -157,17 +157,16 @@ func generate_grass() -> void:
 			st.add_index(base + 3)
 
 	st.generate_normals()
-	st.generate_tangents()
 	var grass_mesh = st.commit()
 	
 	var multimesh = MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = grass_mesh
 	
-	var instances = 35000
+	var instances = 100000
 	var valid_positions = []
 	
-	for i in range(60000):
+	for i in range(250000):
 		var px = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
 		var pz = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
 		

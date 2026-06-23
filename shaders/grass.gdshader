@@ -1,8 +1,8 @@
 shader_type spatial;
 render_mode cull_disabled, depth_draw_opaque;
 
-uniform vec3 color_top : source_color = vec3(0.35, 0.65, 0.45); // Vert plus vif "Ghost of Tsushima"
-uniform vec3 color_bottom : source_color = vec3(0.05, 0.20, 0.15); // Vert sombre à la base
+uniform vec3 color_top : source_color = vec3(0.08, 0.12, 0.25); // Bleu nuit sombre
+uniform vec3 color_bottom : source_color = vec3(0.01, 0.02, 0.05); // Presque noir à la base
 
 uniform float wind_speed = 1.2;
 uniform float wind_strength = 0.25;
