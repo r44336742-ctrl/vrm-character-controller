@@ -11,13 +11,13 @@ uniform sampler2D normalmap_b : hint_normal;
 
 // --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
 // Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
-// On restaure les longueurs d'ondes originales pour retrouver les belles vagues asymétriques !
-uniform vec4 wA = vec4( 1.000,  0.000, 0.16, 61.0);
-uniform vec4 wB = vec4(-0.737,  0.675, 0.14, 43.0);
-uniform vec4 wC = vec4( 0.087, -0.996, 0.12, 29.0);
-uniform vec4 wD = vec4( 0.605,  0.795, 0.09, 19.0);
-uniform vec4 wE = vec4(-0.983, -0.183, 0.06, 11.0);
-uniform vec4 wF = vec4( 0.843, -0.536, 0.04,  7.0);
+// Longueurs d'ondes multipliées par 4 pour détruire le damier, et pentes divisées par 4 pour garder LA MÊME hauteur !
+uniform vec4 wA = vec4( 1.000,  0.000, 0.040, 244.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 0.035, 172.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 0.030, 116.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 0.022,  76.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.015,  44.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.010,  28.0);
 
 varying vec2 world_xz;
 varying float wave_height;
@@ -39,7 +39,6 @@ void vertex() {
 	vec3 off = vec3(0.0);
 	
 	// Perturbation spatiale pour casser définitivement le "damier" (checkerboard)
-	// On utilise des sinus avec des fréquences très basses et irrationnelles pour déformer la phase.
 	float distortion = sin(VERTEX.x * 0.00314 + VERTEX.z * 0.00271) * 2.0 
 	                 + cos(VERTEX.x * 0.00192 - VERTEX.z * 0.00412) * 1.5;
 
@@ -62,11 +61,9 @@ void fragment() {
 	vec2 uv2 = world_xz * 0.13 + TIME * vec2(-0.03, 0.02);
 
 	// --- DÉTAILS DYNAMIQUES (Moins parfait au loin) ---
-	// Calcul de la distance pour adoucir très légèrement les détails au loin (LOD dynamique)
 	float dist = length(VERTEX); 
 	float lod = clamp((dist - 150.0) / 800.0, 0.0, 3.0); 
 
-	// On lit la texture avec le LOD calculé pour éviter l'effet "bruit blanc trop parfait"
 	vec3 n1 = textureLod(normalmap_a, uv1, lod).rgb;
 	vec3 n2 = textureLod(normalmap_b, uv2, lod).rgb;
 	vec3 nm = mix(n1, n2, 0.5);
@@ -74,20 +71,26 @@ void fragment() {
 	float h = clamp(wave_height * 1.2, -1.0, 1.0) * 0.5 + 0.5;
 	vec3 col = mix(albedo_deep, albedo_shallow, h);
 
-	// Écume sur les crêtes pointues
 	float foam = smoothstep(0.35, 0.65, wave_height);
 	col = mix(col, vec3(0.18, 0.25, 0.4), foam * 0.6);
 
 	ALBEDO     = col;
 	METALLIC   = metallic;
-	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
 	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
-	SPECULAR   = 0.0; // On désactive le spéculaire standard car on va créer le nôtre dans light() !
+	SPECULAR   = 0.0; 
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 5.0;
 
-	// Émission de base très légère pour l'ambiance nocturne de l'eau
-	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
+	// --- DÉTAILS PARTOUT (Même dans l'obscurité) ---
+	// On extrait la pente des micro-vagues pour les illuminer artificiellement !
+	vec3 un_mix = normalize(nm * 2.0 - 1.0);
+	float slope = length(un_mix.xy); // 0 quand plat, > 0 quand pentu
+	// On crée une lueur ambiante qui révèle les vagues partout, indépendamment de la lumière
+	float ambient_details = smoothstep(0.1, 0.8, slope);
+
+	// Émission de base + détails des vagues révélés PARTOUT
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h 
+	         + vec3(0.1, 0.15, 0.25) * ambient_details;
 }
 
 void light() {
@@ -95,23 +98,19 @@ void light() {
 	float NdotL = max(0.0, dot(NORMAL, LIGHT));
 	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
 	
-	// --- REFLET SPÉCULAIRE NATUREL ET LARGE ---
-	// Calcul classique, physiquement juste (sans ignorer d'axe pour éviter le bug d'écran blanc !)
+	// --- REFLET SPÉCULAIRE GIGANTESQUE ---
 	vec3 H = normalize(VIEW + LIGHT);
 	float base_spec = max(dot(NORMAL, H), 0.0);
 	
-	// En utilisant une puissance basse (ex: 8.0 au lieu de 30.0), la tache spéculaire 
-	// devient naturellement gigantesque et s'étale sur une énorme largeur,
-	// révélant les détails des vagues partout sans casser les mathématiques.
-	float spec = pow(base_spec, 8.0);
+	// Au lieu d'utiliser pow() qui concentre la lumière en une ligne fine,
+	// on utilise smoothstep pour que TOUTE vague un peu alignée s'illumine !
+	// Cela crée une "autoroute" immense qui prend presque tout l'écran.
+	float spec = smoothstep(0.4, 0.95, base_spec);
 	
 	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
 	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
 	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
 	
-	// On applique la réduction dynamique
 	float final_power = 1.0 * opacity_multiplier;
-	
-	// On ajoute ce reflet large et nuancé à la lumière spéculaire
 	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
 }
