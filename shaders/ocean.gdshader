@@ -80,42 +80,28 @@ void fragment() {
 
 	ALBEDO     = col;
 	METALLIC   = metallic;
-	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
 	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
-	SPECULAR   = 0.0; // On désactive le spéculaire standard car on va créer le nôtre dans light() !
+	SPECULAR   = 0.5; // On réactive le spéculaire standard pour le vrai reflet de la lune !
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 5.0;
 
-	// Émission de base très légère pour l'ambiance nocturne de l'eau
-	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
-}
-
-void light() {
-	// --- LUMIÈRE DIFFUSE STANDARD ---
-	float NdotL = max(0.0, dot(NORMAL, LIGHT));
-	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
-	
-	// --- REFLET SPÉCULAIRE OMNIDIRECTIONNEL (360 DEGRÉS) ---
-	// Pour que l'eau soit ultra-détaillée PARTOUT de la même façon, 
-	// on force une direction de lumière artificielle qui est toujours "devant la caméra" en espace vue !
-	// Peu importe où tu tournes la tête, le reflet magique sera toujours là !
-	vec3 omni_LIGHT = normalize(vec3(0.0, 0.2, -1.0));
-	
-	vec3 H = normalize(VIEW + omni_LIGHT);
-	// On élargit le reflet en écrasant la composante horizontale
-	vec3 wide_H = normalize(vec3(H.x * 0.05, H.y, H.z));
-	
-	// On calcule le reflet spéculaire avec une forte concentration (brillance)
-	float spec = pow(max(dot(NORMAL, wide_H), 0.0), 30.0);
+	// --- REFLET OMNIDIRECTIONNEL "PARTOUT" ---
+	// Au lieu de tricher avec la lumière (ce qui causait le bug du halo qui suit la caméra),
+	// on génère un scintillement ultra-détaillé directement sur toutes les pentes des vagues !
+	// Ainsi, l'eau est hyper détaillée sur 100% de sa surface, peu importe où on regarde.
+	vec3 raw_nm = mix(raw_n1, raw_n2, 0.5);
+	vec3 un_mix = normalize(raw_nm * 2.0 - 1.0);
+	float steepness = 1.0 - un_mix.z; 
+	float omni_spec = smoothstep(0.01, 0.15, steepness);
 	
 	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
 	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
 	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
 	
-	// Comme la fonction light est appelée 2 fois (pour nos 2 lampes), on divise 1.4 par 2 (0.7)
-	// pour avoir exactement la même opacité totale qu'avant !
-	float final_power = 0.7 * opacity_multiplier;
-	
-	// On ajoute ce reflet gigantesque à la lumière spéculaire
-	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
+	// On applique l'ombre douce sur notre reflet omnidirectionnel
+	float final_omni = omni_spec * opacity_multiplier * 0.8;
+
+	// Émission : ambiance de base + notre super reflet détaillé partout
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h 
+	           + vec3(0.5, 0.65, 0.9) * final_omni;
 }
