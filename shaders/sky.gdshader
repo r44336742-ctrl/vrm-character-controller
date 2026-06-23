@@ -86,47 +86,29 @@ void sky() {
     // --- MOON ---
     float moon_dist = distance(dir, moon_d);
     float moon_core = 1.0 - smoothstep(moon_size * 0.95, moon_size, moon_dist);
-    float moon_glow = (1.0 - smoothstep(0.0, moon_size * 8.0, moon_dist)) * 0.6;
-    vec3 moon = moon_color * (moon_core + moon_glow) * 2.0;
+    vec3 moon = vec3(10.0, 10.0, 10.0) * moon_core; // PURE WHITE (SUPER BRIGHT)
     
     vec3 final_color = bg_color + stars + moon;
     
     // --- CLOUDS ---
     if (v_angle > 0.01) { // Clouds only above horizon
-        // Planar projection for perspective clouds (Stratus style)
         vec2 cloud_uv = dir.xz / (v_angle + 0.05); 
-        
-        // Multi-layered scrolling with larger scale to see the details
         vec2 uv1 = cloud_uv * 12.0 + TIME * cloud_speed * vec2(1.0, 0.2);
         vec2 uv2 = cloud_uv * 20.0 + TIME * cloud_speed * vec2(1.3, 0.4);
         
-        // Compute FBM
         float n1 = fbm(uv1);
         float n2 = fbm(uv2);
         float n = mix(n1, n2, 0.5);
         
-        // Edge fade near horizon
         float horizon_fade = smoothstep(0.01, 0.15, v_angle);
         
-        // Density mapping : FBM range is strictly [0, 1]
-        // Base threshold on coverage. 0.5 is middle.
-        float threshold = 0.5; 
-        float cloud_density = smoothstep(threshold, threshold + 0.3, n) * horizon_fade;
+        // DEBUG: pure white clouds with hard cut to verify if noise works
+        float threshold = 0.4; 
+        float cloud_density = step(threshold, n) * horizon_fade;
         
-        // Lighting: clouds near the moon get illuminated
-        float moon_cloud_dist = distance(dir, moon_d);
-        float moon_lighting = 1.0 - smoothstep(0.0, 0.8, moon_cloud_dist);
+        vec3 cloud_col = vec3(1.0, 1.0, 1.0); // PURE WHITE
         
-        // Make the base cloud color slightly lighter than the sky so it's visible even without the moon
-        vec3 base_cloud = vec3(0.03, 0.05, 0.10);
-        vec3 cloud_col = mix(base_cloud, cloud_color_light, moon_lighting);
-        
-        // Add a rim light to the clouds from the moon
-        float rim = smoothstep(threshold, threshold + 0.1, n) - smoothstep(threshold + 0.1, threshold + 0.3, n);
-        cloud_col += moon_color * rim * moon_lighting * 1.5;
-        
-        // Blend clouds over the sky, but they block stars/moon
-        final_color = mix(final_color, cloud_col, cloud_density * 0.95);
+        final_color = mix(final_color, cloud_col, cloud_density);
     }
     
     COLOR = final_color;
