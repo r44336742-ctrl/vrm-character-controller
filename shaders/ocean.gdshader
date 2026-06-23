@@ -10,13 +10,15 @@ uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
 // --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
-// On multiplie les échelles par 10 pour éviter l'effet damier à l'horizon.
-uniform vec4 wA = vec4( 1.000,  0.000, 2.5, 610.0);
-uniform vec4 wB = vec4(-0.737,  0.675, 2.0, 430.0);
-uniform vec4 wC = vec4( 0.087, -0.996, 1.5, 290.0);
-uniform vec4 wD = vec4( 0.605,  0.795, 1.0, 190.0);
-uniform vec4 wE = vec4(-0.983, -0.183, 0.6, 110.0);
-uniform vec4 wF = vec4( 0.843, -0.536, 0.4,  70.0);
+// Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
+// Longueurs d'onde GIGANTESQUES pour détruire le motif "damier" au loin !
+// On multiplie les longueurs d'onde par 15 pour qu'elles fassent des centaines de mètres.
+uniform vec4 wA = vec4( 1.000,  0.000, 0.20, 915.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 0.18, 645.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 0.15, 435.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 0.10, 285.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.08, 165.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.05, 105.0);
 
 varying vec2 world_xz;
 varying float wave_height;
@@ -71,28 +73,30 @@ void fragment() {
 	METALLIC   = metallic;
 	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
 	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
-	SPECULAR   = 0.8; // Reflet spéculaire très fort pour bien capter la lune
+	SPECULAR   = 0.0; // On désactive le spéculaire standard car on va créer le nôtre dans light() !
 	NORMAL_MAP = nm;
-	
-	// En augmentant énormément la profondeur de la normale (bumpiness),
-	// on force la lumière de la lune à s'accrocher sur les côtés des vagues.
-	// Cela "éclate" naturellement le reflet spéculaire pour le rendre super large
-	// et créer des milliers de paillettes réalistes sur toute la mer !
-	NORMAL_MAP_DEPTH = 3.0; // Un peu moins profond pour éviter un aspect trop noir/brûlé
+	NORMAL_MAP_DEPTH = 5.0;
 
-	// --- LE RAYON FOIS 1000 ---
-	// Pour que l'eau soit ultra-détaillée PARTOUT (pas juste sous le soleil),
-	// on extrait la pente géométrique pure des petites vagues (sans se soucier de l'axe X ou Y
-	// ce qui supprime l'effet de damier !).
-	vec3 un1 = n1 * 2.0 - 1.0;
-	vec3 un2 = n2 * 2.0 - 1.0;
-	float slope1 = length(un1.xy);
-	float slope2 = length(un2.xy);
-	
-	// On illumine toutes les pentes raides des vagues, partout sur la map.
-	// Ça crée un effet où chaque clapotis accroche la lumière ambiante !
-	float global_sparkles = smoothstep(0.2, 0.8, slope1) + smoothstep(0.2, 0.8, slope2);
+	// Émission de base très légère pour l'ambiance nocturne de l'eau
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
+}
 
-	// Émission de base + illumination globale des détails des vagues
-	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h + vec3(0.35, 0.5, 0.8) * global_sparkles * 0.3;
+void light() {
+	// --- LUMIÈRE DIFFUSE STANDARD ---
+	float NdotL = max(0.0, dot(NORMAL, LIGHT));
+	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
+	
+	// --- REFLET SPÉCULAIRE "ÉLARGI FOIS MILLE" ---
+	// Pour que la lumière frappe PARTOUT et révèle les détails de l'eau sur toute la largeur,
+	// on ignore complètement l'axe horizontal (X) dans le calcul du reflet !
+	// Ainsi, le reflet ne dépend que de l'inclinaison verticale des vagues.
+	vec3 mod_VIEW = normalize(vec3(0.0, VIEW.y, VIEW.z));
+	vec3 mod_LIGHT = normalize(vec3(0.0, LIGHT.y, LIGHT.z));
+	vec3 mod_H = normalize(mod_VIEW + mod_LIGHT);
+	
+	// On calcule le reflet spéculaire avec une forte concentration (brillance)
+	float spec = pow(max(dot(NORMAL, mod_H), 0.0), 30.0);
+	
+	// On ajoute ce reflet gigantesque à la lumière spéculaire
+	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * 2.0;
 }
