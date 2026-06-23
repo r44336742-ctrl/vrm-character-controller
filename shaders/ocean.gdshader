@@ -9,16 +9,14 @@ uniform float roughness = 0.45;
 uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
-// --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
-// Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
 // Longueurs d'onde GIGANTESQUES pour détruire le motif "damier" au loin !
-// On multiplie les longueurs d'onde par 15 pour qu'elles fassent des centaines de mètres.
-uniform vec4 wA = vec4( 1.000,  0.000, 0.20, 915.0);
-uniform vec4 wB = vec4(-0.737,  0.675, 0.18, 645.0);
-uniform vec4 wC = vec4( 0.087, -0.996, 0.15, 435.0);
-uniform vec4 wD = vec4( 0.605,  0.795, 0.10, 285.0);
-uniform vec4 wE = vec4(-0.983, -0.183, 0.08, 165.0);
-uniform vec4 wF = vec4( 0.843, -0.536, 0.05, 105.0);
+// On a divisé la pente (z) par 15 pour garder exactement la même hauteur de vague qu'avant !
+uniform vec4 wA = vec4( 1.000,  0.000, 0.0107, 915.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 0.0093, 645.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 0.0080, 435.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 0.0060, 285.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.0040, 165.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.0026, 105.0);
 
 varying vec2 world_xz;
 varying float wave_height;
@@ -56,10 +54,14 @@ void fragment() {
 	vec2 uv1 = world_xz * 0.07 + TIME * vec2(0.04,  0.025);
 	vec2 uv2 = world_xz * 0.13 + TIME * vec2(-0.03, 0.02);
 
-	// On force la lecture de la texture à pleine résolution partout (Mipmap 0.0)
-	// Cela garantit que les détails des vagues ne disparaissent jamais au loin !
-	vec3 n1 = textureLod(normalmap_a, uv1, 0.0).rgb;
-	vec3 n2 = textureLod(normalmap_b, uv2, 0.0).rgb;
+	// --- DÉTAILS DYNAMIQUES (Moins parfait au loin) ---
+	// Calcul de la distance pour adoucir très légèrement les détails au loin (LOD dynamique)
+	float dist = length(VERTEX); 
+	float lod = clamp((dist - 150.0) / 800.0, 0.0, 3.0); 
+
+	// On lit la texture avec le LOD calculé pour éviter l'effet "bruit blanc trop parfait"
+	vec3 n1 = textureLod(normalmap_a, uv1, lod).rgb;
+	vec3 n2 = textureLod(normalmap_b, uv2, lod).rgb;
 	vec3 nm = mix(n1, n2, 0.5);
 
 	float h = clamp(wave_height * 1.2, -1.0, 1.0) * 0.5 + 0.5;
@@ -97,6 +99,6 @@ void light() {
 	// On calcule le reflet spéculaire avec une forte concentration (brillance)
 	float spec = pow(max(dot(NORMAL, mod_H), 0.0), 30.0);
 	
-	// On ajoute ce reflet gigantesque à la lumière spéculaire
-	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * 2.0;
+	// On ajoute ce reflet gigantesque à la lumière spéculaire (opacité baissée de 30% : 2.0 -> 1.4)
+	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * 1.4;
 }
