@@ -20,17 +20,13 @@ uniform vec3 cloud_color_dark : source_color = vec3(0.02, 0.03, 0.06);
 uniform vec3 cloud_color_light : source_color = vec3(0.2, 0.3, 0.5);
 uniform float cloud_coverage = 0.45;
 
-// Hash functions
-float hash13(vec3 p3) {
-	p3  = fract(p3 * 0.1031);
-    p3 += vec3(dot(p3, p3.yzx + 33.33));
-    return fract((p3.x + p3.y) * p3.z);
+// Hash functions (Safe Sine Hash to avoid NaN on certain GPUs)
+float hash13(vec3 p) {
+    return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453123);
 }
 
 float hash12(vec2 p) {
-    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
-    p3 += vec3(dot(p3, p3.yzx + 33.33));
-    return fract((p3.x + p3.y) * p3.z);
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
 float noise2D(vec2 p) {
@@ -86,7 +82,8 @@ void sky() {
     // --- MOON ---
     float moon_dist = distance(dir, moon_d);
     float moon_core = 1.0 - smoothstep(moon_size * 0.95, moon_size, moon_dist);
-    vec3 moon = vec3(10.0, 10.0, 10.0) * moon_core; // PURE WHITE (SUPER BRIGHT)
+    float moon_glow = (1.0 - smoothstep(0.0, moon_size * 8.0, moon_dist)) * 0.6;
+    vec3 moon = moon_color * (moon_core + moon_glow) * 2.0;
     
     vec3 final_color = bg_color + stars + moon;
     
@@ -102,13 +99,19 @@ void sky() {
         
         float horizon_fade = smoothstep(0.01, 0.15, v_angle);
         
-        // DEBUG: pure white clouds with hard cut to verify if noise works
-        float threshold = 0.4; 
-        float cloud_density = step(threshold, n) * horizon_fade;
+        float threshold = 0.5; 
+        float cloud_density = smoothstep(threshold, threshold + 0.3, n) * horizon_fade;
         
-        vec3 cloud_col = vec3(1.0, 1.0, 1.0); // PURE WHITE
+        float moon_cloud_dist = distance(dir, moon_d);
+        float moon_lighting = 1.0 - smoothstep(0.0, 0.8, moon_cloud_dist);
         
-        final_color = mix(final_color, cloud_col, cloud_density);
+        vec3 base_cloud = vec3(0.03, 0.05, 0.10);
+        vec3 cloud_col = mix(base_cloud, cloud_color_light, moon_lighting);
+        
+        float rim = smoothstep(threshold, threshold + 0.1, n) - smoothstep(threshold + 0.1, threshold + 0.3, n);
+        cloud_col += moon_color * rim * moon_lighting * 1.5;
+        
+        final_color = mix(final_color, cloud_col, cloud_density * 0.95);
     }
     
     COLOR = final_color;
