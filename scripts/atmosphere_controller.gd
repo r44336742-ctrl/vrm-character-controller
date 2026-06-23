@@ -40,12 +40,12 @@ func _ready() -> void:
 	# Glow : halo autour de la lune et des sources lumineuses
 	env.glow_enabled = true
 	env.glow_intensity = 0.8
-	env.glow_bloom = 0.15  # Plus de bloom pour le halo lunaire
-	env.glow_hdr_threshold = 0.8 # Attrape la lune + reflets
+	env.glow_bloom = 0.26  # Highlight blurriness
+	env.glow_hdr_threshold = 0.20 # Highlight cutoff
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 0.85
+	env.adjustment_saturation = 0.40
 	env.adjustment_contrast = 1.1
 	
 	# --- SSAO : Occlusion ambiante pour la profondeur ---

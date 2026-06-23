@@ -16,8 +16,9 @@ func _ready() -> void:
 	if shader:
 		mat.shader = shader
 		mat.set_shader_parameter("grain_intensity", 0.04)
-		mat.set_shader_parameter("vignette_intensity", 0.35)
-		mat.set_shader_parameter("vignette_softness", 0.45)
+		mat.set_shader_parameter("vignette_inner_radius", 28.0)
+		mat.set_shader_parameter("vignette_outer_radius", 100.0)
+		mat.set_shader_parameter("vignette_intensity", 1.0)
 	
 	rect.material = mat
 	rect.color = Color(1, 1, 1, 1) # Blanc = neutre (le shader fait le travail)
