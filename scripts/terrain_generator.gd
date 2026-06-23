@@ -88,40 +88,70 @@ func generate_grass() -> void:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	var width = 0.6
-	var height = 0.8
+	var blades_per_clump = 12
+	var max_height = 0.8
+	var min_height = 0.4
 	var segments = 3
+	var base_width = 0.04
 	var v_count = 0
 	
-	for rot in [0.0, PI / 2.0]:
-		var dir_x = cos(rot) * width / 2.0
-		var dir_z = sin(rot) * width / 2.0
+	# Generate a single clump of grass at origin (0,0,0)
+	for b in range(blades_per_clump):
+		# Random parameters per blade
+		var angle = (float(b) / blades_per_clump) * PI * 2.0 + randf_range(-0.3, 0.3)
+		var h = randf_range(min_height, max_height)
+		var curve_amount = randf_range(0.15, 0.45) # How much it leans out
+		
+		var dir_x = cos(angle)
+		var dir_z = sin(angle)
+		
+		# The perpendicular vector for width
+		var right_x = cos(angle + PI/2.0)
+		var right_z = sin(angle + PI/2.0)
 		
 		var v_start = v_count
 		
 		for i in range(segments + 1):
 			var t = float(i) / segments
-			var y = t * height
+			var t_curve = t * t # Parabolic curve
 			
+			var y = t * h
+			var x_offset = dir_x * t_curve * curve_amount
+			var z_offset = dir_z * t_curve * curve_amount
+			
+			var current_width = lerp(base_width, 0.0, t) # Taper to 0
+			
+			var left_x = x_offset - right_x * current_width * 0.5
+			var left_z = z_offset - right_z * current_width * 0.5
+			var right_x_pos = x_offset + right_x * current_width * 0.5
+			var right_z_pos = z_offset + right_z * current_width * 0.5
+			
+			# UV X maps to 0..1 across the blade, Y maps to 0..1 from bottom to top
 			st.set_uv(Vector2(0.0, t))
-			st.add_vertex(Vector3(-dir_x, y, -dir_z))
+			st.add_vertex(Vector3(left_x, y, left_z))
 			
 			st.set_uv(Vector2(1.0, t))
-			st.add_vertex(Vector3(dir_x, y, dir_z))
+			st.add_vertex(Vector3(right_x_pos, y, right_z_pos))
+			
 			v_count += 2
 			
+		# Generate indices for this blade
 		for i in range(segments):
 			var base = v_start + i * 2
+			# Front face
 			st.add_index(base)
 			st.add_index(base + 1)
 			st.add_index(base + 2)
+			
 			st.add_index(base + 1)
 			st.add_index(base + 3)
 			st.add_index(base + 2)
 			
+			# Back face
 			st.add_index(base)
 			st.add_index(base + 2)
 			st.add_index(base + 1)
+			
 			st.add_index(base + 1)
 			st.add_index(base + 2)
 			st.add_index(base + 3)
@@ -173,11 +203,6 @@ func generate_grass() -> void:
 	
 	var grass_mat = ShaderMaterial.new()
 	grass_mat.shader = load("res://shaders/grass.gdshader")
-	
-	# Load the new high-res grass mask texture
-	var tex = load("res://assets/textures/grass_mask.png")
-	if tex:
-		grass_mat.set_shader_parameter("grass_mask", tex)
 		
 	grass_multimesh.material_override = grass_mat
 	
