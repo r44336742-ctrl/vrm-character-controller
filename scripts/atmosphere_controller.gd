@@ -11,6 +11,7 @@ func _ready() -> void:
 	sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.01)
 	sky_mat.ground_horizon_color = Color(0.01, 0.015, 0.04) # Plus sombre
 	sky_mat.sky_energy_multiplier = 0.3 # Baisse de l'énergie globale du ciel
+	sky_mat.sun_angle_max = 0.0 # HIDE DEFAULT SUN DISK!
 	
 	var sky = Sky.new()
 	sky.sky_material = sky_mat
@@ -56,7 +57,15 @@ func _ready() -> void:
 	world_env.environment = env
 	add_child(world_env)
 	
-	# --- LUNE : Directionnelle principale (NW) ---
+	# --- CALCUL POSITION LUNE (155 degrés, Distance 250m pour 60% visibilité dans le brouillard) ---
+	var moon_dist = 250.0
+	var moon_angle = deg_to_rad(155.0)
+	var mx = sin(moon_angle) * moon_dist
+	var mz = -cos(moon_angle) * moon_dist
+	var my = 40.0 # Partiellement cachée par l'océan
+	var moon_pos = Vector3(mx, my, mz)
+	
+	# --- LUNE : Directionnelle principale (Depuis la lune) ---
 	moon_light = DirectionalLight3D.new()
 	moon_light.light_energy = 0.8 # Plus sombre (était 1.2)
 	moon_light.light_color = Color(0.6, 0.75, 1.0)
@@ -65,18 +74,21 @@ func _ready() -> void:
 	moon_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	moon_light.shadow_normal_bias = 1.0
 	moon_light.shadow_opacity = 0.85
-	moon_light.rotation_degrees = Vector3(-35, -30, 0) # NW → SE
 	add_child(moon_light)
+	# Orienter la lumière depuis la lune vers le centre
+	moon_light.position = moon_pos
+	moon_light.look_at(Vector3.ZERO, Vector3.UP)
 	
-	# --- FILL LIGHT : Lumière de remplissage côté SE ---
-	# Technique "day for night" : une 2e directionnelle faible dans la direction opposée
-	# garantit que les normales de l'océan sont lisibles de TOUS les côtés
+	# --- FILL LIGHT : Lumière de remplissage ---
 	var fill_light = DirectionalLight3D.new()
 	fill_light.light_energy = 0.15 # Plus sombre (était 0.35)
-	fill_light.light_color = Color(0.3, 0.45, 0.8) # Bleu plus foncé (lumière réfléchie du ciel)
-	fill_light.shadow_enabled = false # Pas d'ombre = pas de performance
-	fill_light.rotation_degrees = Vector3(-25, 150, 0) # SE → NW (opposé à la lune)
+	fill_light.light_color = Color(0.4, 0.5, 0.7)
+	fill_light.shadow_enabled = false
+	fill_light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	add_child(fill_light)
+	# Opposé à la lune
+	fill_light.position = -moon_pos
+	fill_light.look_at(Vector3.ZERO, Vector3.UP)
 	
 	# --- LUNE PHYSIQUE (shader avec texture) ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
@@ -85,10 +97,12 @@ func _ready() -> void:
 		
 	var moon_mesh_inst = MeshInstance3D.new()
 	var moon_quad = QuadMesh.new()
-	moon_quad.size = Vector2(1600, 1600) # Lune gigantesque
+	moon_quad.size = Vector2(250, 250) 
 	moon_mesh_inst.mesh = moon_quad
-	# Position reculée à l'horizon, base immergée sous l'océan
-	moon_mesh_inst.position = Vector3(-400, 450, -2800) 
+	moon_mesh_inst.position = moon_pos
+	# Rotation pour faire face à la caméra (Billboard manuel)
+	moon_mesh_inst.look_at(Vector3(0, my, 0), Vector3.UP)
+	moon_mesh_inst.rotate_object_local(Vector3.UP, PI)
 	
 	var moon_shader = load("res://shaders/moon.gdshader")
 	if moon_shader:
@@ -106,19 +120,20 @@ func _ready() -> void:
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
 	var halo_quad = QuadMesh.new()
-	halo_quad.size = Vector2(4000, 4000) # Halo massif
+	halo_quad.size = Vector2(600, 600) 
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	halo_mat.disable_fog = true
 	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
 	halo_mat.emission_enabled = true
 	halo_mat.emission = Color(0.15, 0.2, 0.35)
 	halo_mat.emission_energy_multiplier = 1.5
-	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	halo.material_override = halo_mat
-	halo.position = Vector3(-400, 450, -2805) # Derrière la lune
+	var halo_pos = Vector3(mx * 1.02, my, mz * 1.02)
+	halo.position = halo_pos
+	halo.look_at(Vector3(0, my, 0), Vector3.UP)
+	halo.rotate_object_local(Vector3.UP, PI)
 	get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---
