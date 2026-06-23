@@ -20,10 +20,17 @@ func _ready() -> void:
 	print("[AudioManager] Initialized OK")
 
 func _process(delta: float) -> void:
-	# Volume mer
+	# Volume mer (audible près des 4 bords de la map)
 	var player_node = get_tree().get_first_node_in_group("player")
 	if player_node and ocean_player:
-		var dist = abs(player_node.global_position.z + 75.0)
+		var px = player_node.global_position.x
+		var pz = player_node.global_position.z
+		
+		# Distance jusqu'à la limite extérieure de la zone jouable (boîte de -75 à +75)
+		var dist_x = max(0.0, 75.0 - abs(px))
+		var dist_z = max(0.0, 75.0 - abs(pz))
+		var dist = min(dist_x, dist_z)
+		
 		var t = clamp(dist / 50.0, 0.0, 1.0)
 		ocean_player.volume_db = lerp(-8.0, -60.0, t * t)
 	
