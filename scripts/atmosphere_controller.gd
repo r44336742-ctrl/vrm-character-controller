@@ -78,6 +78,7 @@ func _ready() -> void:
 	moon_light.shadow_normal_bias = 1.0
 	moon_light.shadow_opacity = 0.85
 	moon_light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY # CACHER LE SOLEIL GODOT !
+	moon_light.light_angular_distance = 80.0 # Élargit énormément le reflet spéculaire
 	add_child(moon_light)
 	moon_light.position = moon_pos
 	moon_light.look_at(Vector3.ZERO, Vector3.UP)
@@ -88,6 +89,7 @@ func _ready() -> void:
 	fill_light.light_color = Color(0.4, 0.5, 0.7)
 	fill_light.shadow_enabled = false
 	fill_light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY # CACHER LE SOLEIL GODOT !
+	fill_light.light_angular_distance = 80.0 # Élargit énormément le reflet spéculaire
 	add_child(fill_light)
 	fill_light.position = -moon_pos
 	fill_light.look_at(Vector3.ZERO, Vector3.UP)

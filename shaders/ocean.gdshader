@@ -69,7 +69,12 @@ void fragment() {
 	ALBEDO     = col;
 	METALLIC   = metallic;
 	ROUGHNESS  = mix(roughness, 0.75, foam * 0.4);
-	SPECULAR   = 0.05; // Réduire le reflet "logique" au minimum
+	
+	// Restaurer le reflet logique mais l'étirer horizontalement à l'extrême
+	SPECULAR   = 0.5; 
+	ANISOTROPY = 0.95; // Étirement maximum
+	ANISOTROPY_FLOW = vec2(1.0, 0.0); // Direction horizontale
+	
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 2.0;
 
