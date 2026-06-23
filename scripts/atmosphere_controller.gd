@@ -61,7 +61,7 @@ func _ready() -> void:
 	# On veut la lune à 155° sur la boussole HUD.
 	# La boussole fait: compass = 180 - yaw. Donc yaw = 180 - 155 = 25 degrés.
 	var moon_yaw = deg_to_rad(25.0)
-	var moon_dist = 3800.0
+	var moon_dist = 2800.0 # Gardé < 3000 pour ne pas dépasser la taille de l'océan
 	
 	# Position calculée avec la rotation native de Godot
 	var forward = Vector3(0, 0, -1).rotated(Vector3.UP, moon_yaw)
@@ -99,7 +99,7 @@ func _ready() -> void:
 		
 	var moon_mesh_inst = MeshInstance3D.new()
 	var moon_quad = QuadMesh.new()
-	moon_quad.size = Vector2(1600, 1600) 
+	moon_quad.size = Vector2(1000, 1000) 
 	moon_mesh_inst.mesh = moon_quad
 	moon_mesh_inst.position = moon_pos
 	# Faire face à la caméra
@@ -124,7 +124,7 @@ func _ready() -> void:
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
 	var halo_quad = QuadMesh.new()
-	halo_quad.size = Vector2(4000, 4000) 
+	halo_quad.size = Vector2(2500, 2500) 
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
