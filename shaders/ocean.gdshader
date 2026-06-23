@@ -10,14 +10,13 @@ uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
 // --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
-// Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
-// Longueurs d'onde basées sur des nombres premiers pour empêcher le bouclage du motif.
-uniform vec4 wA = vec4( 1.000,  0.000, 0.16, 61.0);
-uniform vec4 wB = vec4(-0.737,  0.675, 0.14, 43.0);
-uniform vec4 wC = vec4( 0.087, -0.996, 0.12, 29.0);
-uniform vec4 wD = vec4( 0.605,  0.795, 0.09, 19.0);
-uniform vec4 wE = vec4(-0.983, -0.183, 0.06, 11.0);
-uniform vec4 wF = vec4( 0.843, -0.536, 0.04,  7.0);
+// On multiplie les échelles par 10 pour éviter l'effet damier à l'horizon.
+uniform vec4 wA = vec4( 1.000,  0.000, 2.5, 610.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 2.0, 430.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 1.5, 290.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 1.0, 190.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.6, 110.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.4,  70.0);
 
 varying vec2 world_xz;
 varying float wave_height;
@@ -79,8 +78,21 @@ void fragment() {
 	// on force la lumière de la lune à s'accrocher sur les côtés des vagues.
 	// Cela "éclate" naturellement le reflet spéculaire pour le rendre super large
 	// et créer des milliers de paillettes réalistes sur toute la mer !
-	NORMAL_MAP_DEPTH = 5.0;
+	NORMAL_MAP_DEPTH = 3.0; // Un peu moins profond pour éviter un aspect trop noir/brûlé
 
-	// Émission de base très légère pour l'ambiance nocturne de l'eau
-	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
+	// --- LE RAYON FOIS 1000 ---
+	// Pour que l'eau soit ultra-détaillée PARTOUT (pas juste sous le soleil),
+	// on extrait la pente géométrique pure des petites vagues (sans se soucier de l'axe X ou Y
+	// ce qui supprime l'effet de damier !).
+	vec3 un1 = n1 * 2.0 - 1.0;
+	vec3 un2 = n2 * 2.0 - 1.0;
+	float slope1 = length(un1.xy);
+	float slope2 = length(un2.xy);
+	
+	// On illumine toutes les pentes raides des vagues, partout sur la map.
+	// Ça crée un effet où chaque clapotis accroche la lumière ambiante !
+	float global_sparkles = smoothstep(0.2, 0.8, slope1) + smoothstep(0.2, 0.8, slope2);
+
+	// Émission de base + illumination globale des détails des vagues
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h + vec3(0.35, 0.5, 0.8) * global_sparkles * 0.3;
 }
