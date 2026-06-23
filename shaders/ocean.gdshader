@@ -82,19 +82,36 @@ void fragment() {
 	METALLIC   = metallic;
 	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
 	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
-	
-	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
-	// On crée un bruit très basse fréquence basé sur la position mondiale de l'eau
-	// pour simuler d'immenses nuages invisibles qui masquent légèrement la lune.
-	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
-	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
-	
-	// On restaure le spéculaire physique natif de Godot (sans le bug de l'écran blanc !)
-	// Et on lui applique la baisse d'opacité dynamique des nuages
-	SPECULAR   = 0.8 * opacity_multiplier; 
+	SPECULAR   = 0.0; // On désactive le spéculaire standard car on va créer le nôtre dans light() !
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 5.0;
 
 	// Émission de base très légère pour l'ambiance nocturne de l'eau
 	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
+}
+
+void light() {
+	// --- LUMIÈRE DIFFUSE STANDARD ---
+	float NdotL = max(0.0, dot(NORMAL, LIGHT));
+	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
+	
+	// --- REFLET SPÉCULAIRE NATUREL ET LARGE ---
+	// Calcul classique, physiquement juste (sans ignorer d'axe pour éviter le bug d'écran blanc !)
+	vec3 H = normalize(VIEW + LIGHT);
+	float base_spec = max(dot(NORMAL, H), 0.0);
+	
+	// En utilisant une puissance basse (ex: 8.0 au lieu de 30.0), la tache spéculaire 
+	// devient naturellement gigantesque et s'étale sur une énorme largeur,
+	// révélant les détails des vagues partout sans casser les mathématiques.
+	float spec = pow(base_spec, 8.0);
+	
+	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
+	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
+	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
+	
+	// On applique la réduction dynamique
+	float final_power = 1.0 * opacity_multiplier;
+	
+	// On ajoute ce reflet large et nuancé à la lumière spéculaire
+	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
 }
