@@ -173,6 +173,12 @@ func generate_grass() -> void:
 	
 	var grass_mat = ShaderMaterial.new()
 	grass_mat.shader = load("res://shaders/grass.gdshader")
+	
+	# Load the new high-res grass mask texture
+	var tex = load("res://assets/textures/grass_mask.png")
+	if tex:
+		grass_mat.set_shader_parameter("grass_mask", tex)
+		
 	grass_multimesh.material_override = grass_mat
 	
 	# Grass casts no shadows to save performance on 35k instances

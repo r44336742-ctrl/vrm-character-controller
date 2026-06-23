@@ -1,8 +1,9 @@
 shader_type spatial;
 render_mode cull_disabled, depth_draw_opaque;
 
-uniform vec3 color_top : source_color = vec3(0.2, 0.4, 0.2);
-uniform vec3 color_bottom : source_color = vec3(0.05, 0.15, 0.05);
+uniform vec3 color_top : source_color = vec3(0.25, 0.5, 0.35); // Couleurs plus douces
+uniform vec3 color_bottom : source_color = vec3(0.05, 0.15, 0.1);
+uniform sampler2D grass_mask : filter_linear_mipmap, source_color;
 
 uniform float wind_speed = 1.5;
 uniform float wind_strength = 0.3;
@@ -47,8 +48,20 @@ void vertex() {
 }
 
 void fragment() {
+	// Masque de transparence (texture générée)
+	float mask = texture(grass_mask, UV).a;
+	
 	// Gradient color from bottom to top
 	vec3 color = mix(color_bottom, color_top, UV.y);
 	ALBEDO = color;
-	ROUGHNESS = 0.8;
+	
+	// Alpha scissor pour détourer parfaitement les brins d'herbe
+	ALPHA = mask;
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
+	
+	// TRICK PRO : Forcer la normale vers le haut.
+	// Cela supprime les ombres noires dégueulasses sur les faces arrière
+	// et donne un éclairage "doux" (fluffy) typique des jeux Ghibli/Zelda.
+	NORMAL = vec3(0.0, 1.0, 0.0);
+	ROUGHNESS = 0.6;
 }
