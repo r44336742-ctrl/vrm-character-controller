@@ -78,16 +78,17 @@ func _ready() -> void:
 	fill_light.rotation_degrees = Vector3(-25, 150, 0) # SE → NW (opposé à la lune)
 	add_child(fill_light)
 	
-	# --- LUNE PHYSIQUE (shader avec cratères) ---
+	# --- LUNE PHYSIQUE (shader avec texture) ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
 	if dummy_moon:
-		dummy_moon.visible = false # Cacher l'ancienne lune sphérique
+		dummy_moon.visible = false 
 		
 	var moon_mesh_inst = MeshInstance3D.new()
 	var moon_quad = QuadMesh.new()
-	moon_quad.size = Vector2(100, 100) # Taille de la lune x4
+	moon_quad.size = Vector2(1600, 1600) # Lune gigantesque
 	moon_mesh_inst.mesh = moon_quad
-	moon_mesh_inst.position = Vector3(-120, 180, -500) # Plus haut dans le ciel (Y de 90 à 180)
+	# Position reculée à l'horizon, base immergée sous l'océan
+	moon_mesh_inst.position = Vector3(-400, 300, -2800) 
 	
 	var moon_shader = load("res://shaders/moon.gdshader")
 	if moon_shader:
@@ -105,7 +106,7 @@ func _ready() -> void:
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
 	var halo_quad = QuadMesh.new()
-	halo_quad.size = Vector2(320, 320) # Taille du halo x4
+	halo_quad.size = Vector2(4000, 4000) # Halo massif
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -116,7 +117,7 @@ func _ready() -> void:
 	halo_mat.emission_energy_multiplier = 1.5
 	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	halo.material_override = halo_mat
-	halo.position = Vector3(-120, 90, -502) # Juste derrière la lune
+	halo.position = Vector3(-400, 300, -2805) # Derrière la lune
 	get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---

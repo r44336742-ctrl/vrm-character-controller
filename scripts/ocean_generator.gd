@@ -3,9 +3,9 @@ extends Node3D
 func _ready() -> void:
 	var mesh_instance = MeshInstance3D.new()
 	var plane = PlaneMesh.new()
-	plane.size = Vector2(1200, 1200)
-	plane.subdivide_width = 300
-	plane.subdivide_depth = 300
+	plane.size = Vector2(6000, 6000)
+	plane.subdivide_width = 800
+	plane.subdivide_depth = 800
 	mesh_instance.mesh = plane
 	
 	var mat = ShaderMaterial.new()
