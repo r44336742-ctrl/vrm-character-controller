@@ -57,17 +57,18 @@ func _ready() -> void:
 	world_env.environment = env
 	add_child(world_env)
 	
-	# --- CALCUL POSITION LUNE (155 degrés, Distance 250m pour 60% visibilité dans le brouillard) ---
-	var moon_dist = 250.0
-	var moon_angle = deg_to_rad(155.0)
-	var mx = sin(moon_angle) * moon_dist
-	var mz = -cos(moon_angle) * moon_dist
-	var my = 40.0 # Partiellement cachée par l'océan
+	# --- CALCUL POSITION LUNE (HUD = 155°, Distance = 2800m) ---
+	# HUD compass_deg = 180 - yaw_deg -> yaw_deg = 180 - 155 = 25
+	var moon_dist = 2800.0
+	var yaw_rad = deg_to_rad(25.0)
+	var mx = -sin(yaw_rad) * moon_dist
+	var mz = -cos(yaw_rad) * moon_dist
+	var my = 350.0 # Partiellement cachée par l'océan
 	var moon_pos = Vector3(mx, my, mz)
 	
 	# --- LUNE : Directionnelle principale (Depuis la lune) ---
 	moon_light = DirectionalLight3D.new()
-	moon_light.light_energy = 0.8 # Plus sombre (était 1.2)
+	moon_light.light_energy = 0.8 
 	moon_light.light_color = Color(0.6, 0.75, 1.0)
 	moon_light.shadow_enabled = true
 	moon_light.shadow_bias = 0.02
@@ -75,18 +76,16 @@ func _ready() -> void:
 	moon_light.shadow_normal_bias = 1.0
 	moon_light.shadow_opacity = 0.85
 	add_child(moon_light)
-	# Orienter la lumière depuis la lune vers le centre
 	moon_light.position = moon_pos
 	moon_light.look_at(Vector3.ZERO, Vector3.UP)
 	
 	# --- FILL LIGHT : Lumière de remplissage ---
 	var fill_light = DirectionalLight3D.new()
-	fill_light.light_energy = 0.15 # Plus sombre (était 0.35)
+	fill_light.light_energy = 0.15
 	fill_light.light_color = Color(0.4, 0.5, 0.7)
 	fill_light.shadow_enabled = false
 	fill_light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	add_child(fill_light)
-	# Opposé à la lune
 	fill_light.position = -moon_pos
 	fill_light.look_at(Vector3.ZERO, Vector3.UP)
 	
@@ -97,10 +96,9 @@ func _ready() -> void:
 		
 	var moon_mesh_inst = MeshInstance3D.new()
 	var moon_quad = QuadMesh.new()
-	moon_quad.size = Vector2(250, 250) 
+	moon_quad.size = Vector2(1600, 1600) 
 	moon_mesh_inst.mesh = moon_quad
 	moon_mesh_inst.position = moon_pos
-	# Rotation pour faire face à la caméra (Billboard manuel)
 	moon_mesh_inst.look_at(Vector3(0, my, 0), Vector3.UP)
 	moon_mesh_inst.rotate_object_local(Vector3.UP, PI)
 	
@@ -112,7 +110,9 @@ func _ready() -> void:
 		if tex:
 			moon_mat.set_shader_parameter("moon_texture", tex)
 		moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
-		moon_mat.set_shader_parameter("glow_intensity", 3.5)
+		moon_mat.set_shader_parameter("glow_intensity", 2.0) # Moins intense car on simule le brouillard
+		moon_mat.set_shader_parameter("fog_color", env.fog_light_color)
+		moon_mat.set_shader_parameter("fog_blend", 0.4) # 60% immunité = 40% noyé dans le brouillard
 		moon_mesh_inst.material_override = moon_mat
 	
 	get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
@@ -120,15 +120,16 @@ func _ready() -> void:
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
 	var halo_quad = QuadMesh.new()
-	halo_quad.size = Vector2(600, 600) 
+	halo_quad.size = Vector2(4000, 4000) 
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.disable_fog = true
 	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
 	halo_mat.emission_enabled = true
 	halo_mat.emission = Color(0.15, 0.2, 0.35)
-	halo_mat.emission_energy_multiplier = 1.5
+	halo_mat.emission_energy_multiplier = 1.5 * 0.6 # 60% immunité = baissé de 40%
 	halo.material_override = halo_mat
 	var halo_pos = Vector3(mx * 1.02, my, mz * 1.02)
 	halo.position = halo_pos

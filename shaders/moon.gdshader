@@ -1,9 +1,11 @@
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, cull_back, fog_disabled;
 
 uniform sampler2D moon_texture : source_color, filter_linear_mipmap;
 uniform vec3 moon_color : source_color = vec3(0.85, 0.88, 0.95);
 uniform float glow_intensity = 3.5;
+uniform vec3 fog_color : source_color = vec3(0.03, 0.05, 0.12);
+uniform float fog_blend = 0.4;
 
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;
@@ -24,6 +26,9 @@ void fragment() {
 	// Bords lumineux pour un effet atmosphérique
 	float edge_glow = smoothstep(0.7, 1.0, dist);
 	vec3 final_color = mix(base_color, vec3(1.0), edge_glow * 0.3);
+	
+	// Mélange manuel avec le brouillard pour conserver 60% d'immunité
+	final_color = mix(final_color, fog_color, fog_blend);
 	
 	ALBEDO = final_color;
 	EMISSION = final_color * glow_intensity;
