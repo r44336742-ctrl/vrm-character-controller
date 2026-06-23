@@ -106,6 +106,19 @@ void light() {
 	// On calcule le reflet spéculaire avec une forte concentration (brillance)
 	float spec = pow(max(dot(NORMAL, mod_H), 0.0), 30.0);
 	
-	// On ajoute ce reflet gigantesque à la lumière spéculaire (opacité baissée de 30% : 2.0 -> 1.4)
-	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * 1.4;
+	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
+	// On crée un bruit très basse fréquence basé sur la position mondiale de l'eau
+	// pour simuler d'immenses nuages invisibles qui masquent légèrement la lune.
+	// La fréquence est très basse pour que les transitions (fondus) fassent des centaines de mètres.
+	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
+	
+	// cloud_shadow varie de -1 à 1. On le convertit en un multiplicateur d'opacité entre 0.65 et 0.80
+	// (0.65 = baisse de 35%, 0.80 = baisse de 20%)
+	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
+	
+	// Le multiplicateur de base était 1.4. On lui applique la réduction dynamique.
+	float final_power = 1.4 * opacity_multiplier;
+	
+	// On ajoute ce reflet gigantesque et nuancé à la lumière spéculaire
+	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
 }
