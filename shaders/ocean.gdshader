@@ -74,12 +74,18 @@ void fragment() {
 	NORMAL_MAP_DEPTH = 2.0;
 
 	// --- REFLET MAGIQUE "PARTOUT" (Contre la physique) ---
-	// On crée un effet de paillettes lumineuses réparties sur toutes les vagues
-	float s1 = pow(clamp(dot(n1, normalize(vec3(0.3, 0.1, 1.0))), 0.0, 1.0), 90.0);
-	float s2 = pow(clamp(dot(n2, normalize(vec3(-0.3, -0.1, 1.0))), 0.0, 1.0), 90.0);
-	float s3 = pow(clamp(dot(n1, normalize(vec3(-0.1, 0.4, 1.0))), 0.0, 1.0), 120.0);
-	float s4 = pow(clamp(dot(n2, normalize(vec3(0.1, -0.4, 1.0))), 0.0, 1.0), 120.0);
-	float magic_sparkles = (s1 + s2 + s3 + s4) * 2.5;
+	// Décompresser les normales de [0, 1] vers [-1, 1]
+	vec3 un1 = n1 * 2.0 - 1.0;
+	vec3 un2 = n2 * 2.0 - 1.0;
+	
+	// Utiliser les pentes des vagues pour créer des éclats brillants
+	// peu importe l'angle de la caméra ou de la lumière !
+	// Les seuils sont bas pour s'assurer que ça scintille PARTOUT.
+	float s1 = smoothstep(0.1, 0.4, abs(un1.x));
+	float s2 = smoothstep(0.1, 0.4, abs(un1.y));
+	float s3 = smoothstep(0.1, 0.3, abs(un2.x));
+	float s4 = smoothstep(0.1, 0.3, abs(un2.y));
+	float magic_sparkles = (s1 + s2 + s3 + s4) * 0.4;
 
 	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h + (vec3(0.6, 0.8, 1.0) * magic_sparkles);
 }

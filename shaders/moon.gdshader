@@ -37,5 +37,7 @@ void fragment() {
 	final_color = mix(final_color, fog_color, fog_blend);
 	
 	ALBEDO = final_color;
-	EMISSION = final_color * glow_intensity;
+	// On applique une courbe (pow) pour que les cratères sombres restent sombres, 
+	// et seules les parties claires de la texture brillent (bloom).
+	EMISSION = pow(final_color, vec3(1.8)) * glow_intensity;
 }
