@@ -85,7 +85,7 @@ func _ready() -> void:
 		
 	var moon_mesh_inst = MeshInstance3D.new()
 	var moon_quad = QuadMesh.new()
-	moon_quad.size = Vector2(25, 25) # Taille de la lune
+	moon_quad.size = Vector2(100, 100) # Taille de la lune x4
 	moon_mesh_inst.mesh = moon_quad
 	moon_mesh_inst.position = Vector3(-120, 90, -500)
 	
@@ -102,7 +102,7 @@ func _ready() -> void:
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
 	var halo_quad = QuadMesh.new()
-	halo_quad.size = Vector2(80, 80)
+	halo_quad.size = Vector2(320, 320) # Taille du halo x4
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
