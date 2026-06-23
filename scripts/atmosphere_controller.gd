@@ -5,10 +5,12 @@ var moon_light: DirectionalLight3D
 
 func _ready() -> void:
 	# --- CIEL ---
-	var sky_shader = load("res://shaders/sky.gdshader")
-	var sky_mat = ShaderMaterial.new()
-	if sky_shader:
-		sky_mat.shader = sky_shader
+	var sky_mat = ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.005, 0.01, 0.03) # Plus sombre
+	sky_mat.sky_horizon_color = Color(0.02, 0.03, 0.08) # Plus sombre
+	sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.01)
+	sky_mat.ground_horizon_color = Color(0.01, 0.015, 0.04) # Plus sombre
+	sky_mat.sky_energy_multiplier = 0.3 # Baisse de l'énergie globale du ciel
 	
 	var sky = Sky.new()
 	sky.sky_material = sky_mat
@@ -19,8 +21,8 @@ func _ready() -> void:
 	
 	# --- AMBIENT : "Day for Night" ---
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.08, 0.12, 0.25)
-	env.ambient_light_energy = 0.5
+	env.ambient_light_color = Color(0.04, 0.06, 0.12) # Plus sombre
+	env.ambient_light_energy = 0.3 # Baisse de la lumière ambiante
 	
 	# --- BROUILLARD VOLUMÉTRIQUE ---
 	env.fog_enabled = true
@@ -57,7 +59,7 @@ func _ready() -> void:
 	
 	# --- LUNE : Directionnelle principale (NW) ---
 	moon_light = DirectionalLight3D.new()
-	moon_light.light_energy = 1.2
+	moon_light.light_energy = 0.8 # Plus sombre (était 1.2)
 	moon_light.light_color = Color(0.6, 0.75, 1.0)
 	moon_light.shadow_enabled = true
 	moon_light.shadow_bias = 0.02
@@ -70,20 +72,118 @@ func _ready() -> void:
 	# Technique "day for night" : une 2e directionnelle faible dans la direction opposée
 	# garantit que les normales de l'océan sont lisibles de TOUS les côtés
 	var fill_light = DirectionalLight3D.new()
-	fill_light.light_energy = 0.35 # Assez pour révéler les bumps, pas pour blanchir
+	fill_light.light_energy = 0.15 # Plus sombre (était 0.35)
 	fill_light.light_color = Color(0.3, 0.45, 0.8) # Bleu plus foncé (lumière réfléchie du ciel)
 	fill_light.shadow_enabled = false # Pas d'ombre = pas de performance
 	fill_light.rotation_degrees = Vector3(-25, 150, 0) # SE → NW (opposé à la lune)
-	# (La lune et les étoiles sont désormais gérées par le shader de ciel)
+	add_child(fill_light)
+	
+	# --- LUNE PHYSIQUE (shader avec cratères) ---
 	var dummy_moon = get_parent().get_node_or_null("EnvironmentAssets/Moon")
 	if dummy_moon:
 		dummy_moon.visible = false # Cacher l'ancienne lune sphérique
+		
+	var moon_mesh_inst = MeshInstance3D.new()
+	var moon_quad = QuadMesh.new()
+	moon_quad.size = Vector2(25, 25) # Taille de la lune
+	moon_mesh_inst.mesh = moon_quad
+	moon_mesh_inst.position = Vector3(-120, 90, -500)
+	
+	var moon_shader = load("res://shaders/moon.gdshader")
+	if moon_shader:
+		var moon_mat = ShaderMaterial.new()
+		moon_mat.shader = moon_shader
+		moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
+		moon_mat.set_shader_parameter("glow_intensity", 3.5)
+		moon_mesh_inst.material_override = moon_mat
+	
+	get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
+	
+	# --- HALO LUNAIRE (quad géant derrière la lune) ---
+	var halo = MeshInstance3D.new()
+	var halo_quad = QuadMesh.new()
+	halo_quad.size = Vector2(80, 80)
+	halo.mesh = halo_quad
+	var halo_mat = StandardMaterial3D.new()
+	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
+	halo_mat.emission_enabled = true
+	halo_mat.emission = Color(0.15, 0.2, 0.35)
+	halo_mat.emission_energy_multiplier = 1.5
+	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	halo.material_override = halo_mat
+	halo.position = Vector3(-120, 90, -502) # Juste derrière la lune
+	get_parent().get_node("EnvironmentAssets").add_child(halo)
+	
+	# --- ÉTOILES ---
+	_generate_stars()
 	
 	# --- LAMPES DE RUE ---
 	_generate_lanterns()
 	
 	# --- LAMPES DE RUE ---
 	_generate_lanterns()
+
+func _generate_stars() -> void:
+	# 3 types de couleur d'étoiles
+	var star_colors = [
+		Color(0.9, 0.92, 1.0),    # Blanc-bleu (courantes)
+		Color(0.6, 0.75, 1.0),    # Bleu vif (chaudes B)
+		Color(1.0, 0.9, 0.75),    # Blanc-chaud (type G/K)
+	]
+	
+	var rng = RandomNumberGenerator.new()
+	rng.seed = 42
+	
+	var star_mesh = SphereMesh.new()
+	star_mesh.radius = 0.15
+	star_mesh.height = 0.3
+	star_mesh.radial_segments = 4
+	star_mesh.rings = 2
+	
+	for i in range(200): # Plus d'étoiles
+		var mesh_inst = MeshInstance3D.new()
+		mesh_inst.mesh = star_mesh
+		
+		# Matériau individuel pour variation de couleur/intensité
+		var mat = StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.emission_enabled = true
+		
+		# Couleur aléatoire parmi les 3 types
+		var color_idx = rng.randi_range(0, 2)
+		var star_col = star_colors[color_idx]
+		mat.emission = star_col
+		mat.albedo_color = star_col
+		
+		# 3 tiers de luminosité (quelques brillantes, beaucoup de faibles)
+		var brightness_roll = rng.randf()
+		if brightness_roll < 0.05:
+			mat.emission_energy_multiplier = rng.randf_range(4.0, 6.0) # Très brillante
+			var bs = rng.randf_range(2.0, 3.0)
+			mesh_inst.scale = Vector3(bs, bs, bs)
+		elif brightness_roll < 0.25:
+			mat.emission_energy_multiplier = rng.randf_range(2.0, 3.5) # Moyenne
+			var ms = rng.randf_range(1.0, 2.0)
+			mesh_inst.scale = Vector3(ms, ms, ms)
+		else:
+			mat.emission_energy_multiplier = rng.randf_range(0.8, 1.5) # Faible
+			var ss = rng.randf_range(0.3, 0.8)
+			mesh_inst.scale = Vector3(ss, ss, ss)
+		
+		mesh_inst.material_override = mat
+		
+		var theta = rng.randf_range(0, TAU)
+		var phi = rng.randf_range(0.05, 0.75)
+		var r = 800.0
+		mesh_inst.position = Vector3(
+			r * sin(phi) * cos(theta),
+			r * cos(phi),
+			r * sin(phi) * sin(theta)
+		)
+		
+		add_child(mesh_inst)
 
 func _generate_lanterns() -> void:
 	# Lanternes le long de l'allée (Z=20 à Z=55, de chaque côté)
