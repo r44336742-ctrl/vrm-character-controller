@@ -89,7 +89,7 @@ void fragment() {
 	// Au lieu de tricher avec la lumière (ce qui causait le bug du halo qui suit la caméra),
 	// on génère un scintillement ultra-détaillé directement sur toutes les pentes des vagues !
 	// Ainsi, l'eau est hyper détaillée sur 100% de sa surface, peu importe où on regarde.
-	vec3 raw_nm = mix(raw_n1, raw_n2, 0.5);
+	vec3 raw_nm = mix(n1, n2, 0.5);
 	vec3 un_mix = normalize(raw_nm * 2.0 - 1.0);
 	float steepness = 1.0 - un_mix.z; 
 	float omni_spec = smoothstep(0.01, 0.15, steepness);
