@@ -74,9 +74,14 @@ void fragment() {
 	NORMAL_MAP_DEPTH = 2.0;
 
 	// --- REFLET MAGIQUE "PARTOUT" (Contre la physique) ---
+	// Utiliser textureLod avec un niveau de mipmap 0.0 force la lecture de la texture
+	// en pleine résolution, même au loin. Cela empêche le lissage par la distance !
+	vec3 raw_n1 = textureLod(normalmap_a, uv1, 0.0).rgb;
+	vec3 raw_n2 = textureLod(normalmap_b, uv2, 0.0).rgb;
+	
 	// Décompresser les normales de [0, 1] vers [-1, 1]
-	vec3 un1 = n1 * 2.0 - 1.0;
-	vec3 un2 = n2 * 2.0 - 1.0;
+	vec3 un1 = raw_n1 * 2.0 - 1.0;
+	vec3 un2 = raw_n2 * 2.0 - 1.0;
 	
 	// Utiliser les pentes des vagues pour créer des éclats brillants
 	// peu importe l'angle de la caméra ou de la lumière !
