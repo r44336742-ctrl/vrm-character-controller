@@ -22,14 +22,14 @@ uniform float cloud_coverage = 0.45;
 
 // Hash functions
 float hash13(vec3 p3) {
-	p3  = fract(p3 * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
+	p3  = fract(p3 * 0.1031);
+    p3 += vec3(dot(p3, p3.yzx + 33.33));
     return fract((p3.x + p3.y) * p3.z);
 }
 
 float hash12(vec2 p) {
-    vec3 p3  = fract(vec3(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
+    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
+    p3 += vec3(dot(p3, p3.yzx + 33.33));
     return fract((p3.x + p3.y) * p3.z);
 }
 
@@ -83,8 +83,8 @@ void sky() {
     
     // --- MOON ---
     float moon_dist = distance(dir, moon_d);
-    float moon_core = smoothstep(moon_size, moon_size * 0.95, moon_dist);
-    float moon_glow = smoothstep(moon_size * 8.0, 0.0, moon_dist) * 0.6;
+    float moon_core = 1.0 - smoothstep(moon_size * 0.95, moon_size, moon_dist);
+    float moon_glow = (1.0 - smoothstep(0.0, moon_size * 8.0, moon_dist)) * 0.6;
     vec3 moon = moon_color * (moon_core + moon_glow) * 2.0;
     
     vec3 final_color = bg_color + stars + moon;
@@ -106,21 +106,23 @@ void sky() {
         // Edge fade near horizon
         float horizon_fade = smoothstep(0.01, 0.2, v_angle);
         
-        // Density mapping
-        float cloud_density = smoothstep(1.0 - cloud_coverage, 1.0, n) * horizon_fade;
+        // Density mapping : FBM range is ~[0, 1] with average 0.5
+        // Using cloud_coverage to shift the threshold
+        float threshold = 0.7 - (cloud_coverage * 0.4); // 0.45 -> threshold 0.52
+        float cloud_density = smoothstep(threshold, threshold + 0.2, n) * horizon_fade;
         
         // Lighting: clouds near the moon get illuminated
         float moon_cloud_dist = distance(dir, moon_d);
-        float moon_lighting = smoothstep(0.6, 0.0, moon_cloud_dist);
+        float moon_lighting = 1.0 - smoothstep(0.0, 0.6, moon_cloud_dist);
         
         vec3 cloud_col = mix(cloud_color_dark, cloud_color_light, moon_lighting);
         
         // Add a rim light to the clouds from the moon
-        float rim = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage + 0.1, n) - smoothstep(1.0 - cloud_coverage + 0.1, 1.0, n);
+        float rim = smoothstep(threshold, threshold + 0.05, n) - smoothstep(threshold + 0.05, threshold + 0.2, n);
         cloud_col += moon_color * rim * moon_lighting * 2.0;
         
         // Blend
-        final_color = mix(final_color, cloud_col, cloud_density * 0.85); // 0.85 opacity max for soft clouds
+        final_color = mix(final_color, cloud_col, cloud_density * 0.9);
     }
     
     COLOR = final_color;
