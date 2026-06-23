@@ -55,13 +55,21 @@ func _ready() -> void:
 	
 	# 3. Create MeshInstance
 	var mesh_instance = MeshInstance3D.new()
-	mesh_instance.mesh = mesh
 	
 	var mat = ShaderMaterial.new()
 	var shader = load("res://shaders/terrain.gdshader")
 	if shader:
 		mat.shader = shader
-	mesh_instance.material_override = mat
+	mesh_instance.mesh = mesh
+	
+	# --- TERRAIN MATERIAL ---
+	# Paint the ground with the exact same dark color as the grass roots.
+	# This completely hides any gaps between the grass, creating the illusion of infinite density.
+	var terrain_mat = StandardMaterial3D.new()
+	terrain_mat.albedo_color = Color(0.01, 0.02, 0.05) # Same as grass color_bottom
+	terrain_mat.roughness = 0.9
+	mesh_instance.material_override = terrain_mat
+	
 	add_child(mesh_instance)
 	
 	# 4. Create optimized collision (HeightMapShape3D)
@@ -92,7 +100,7 @@ func generate_grass() -> void:
 	var max_height = 0.9
 	var min_height = 0.5
 	var segments = 2
-	var base_width = 0.08
+	var base_width = 0.12
 	var v_count = 0
 	
 	# Generate a single clump of grass at origin (0,0,0)
@@ -210,6 +218,11 @@ func generate_grass() -> void:
 		mmi.multimesh = mm
 		mmi.material_override = grass_material
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		
+		# Optimization: Distance fade
+		mmi.visibility_range_end = 130.0
+		mmi.visibility_range_end_margin = 20.0
+		
 		grass_parent.add_child(mmi)
 		
 	print("TerrainGenerator: Grass generated with %d chunks and %d instances." % [chunks.size(), valid_positions.size()])

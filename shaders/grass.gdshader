@@ -30,10 +30,13 @@ void vertex() {
 	VERTEX.x += (wind_noise * wind_strength + micro_wind) * bend_factor;
 	VERTEX.z += (wind_noise * wind_strength + micro_wind) * bend_factor;
 	
-	// 3. Player interaction
-	float dist = distance(world_pos.xz, player_position.xz);
-	if (dist < push_radius) {
-		vec2 push_dir = normalize(world_pos.xz - player_position.xz);
+	// 3. Player interaction (Optimized with squared distance)
+	vec2 diff = world_pos.xz - player_position.xz;
+	float dist_sq = dot(diff, diff);
+	
+	if (dist_sq < push_radius * push_radius) {
+		float dist = sqrt(dist_sq);
+		vec2 push_dir = diff / dist; // Fast normalize
 		float push_factor = 1.0 - (dist / push_radius);
 		push_factor = smoothstep(0.0, 1.0, push_factor);
 		
