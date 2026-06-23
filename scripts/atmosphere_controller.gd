@@ -87,7 +87,7 @@ func _ready() -> void:
 	var moon_quad = QuadMesh.new()
 	moon_quad.size = Vector2(100, 100) # Taille de la lune x4
 	moon_mesh_inst.mesh = moon_quad
-	moon_mesh_inst.position = Vector3(-120, 90, -500)
+	moon_mesh_inst.position = Vector3(-120, 180, -500) # Plus haut dans le ciel (Y de 90 à 180)
 	
 	var moon_shader = load("res://shaders/moon.gdshader")
 	if moon_shader:

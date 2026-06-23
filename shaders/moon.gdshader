@@ -52,30 +52,37 @@ void fragment() {
 	float z_sphere = sqrt(1.0 - dist * dist);
 	vec2 sphere_uv = uv * 0.5 + 0.5;
 	
-	// --- SURFACE LUNAIRE ---
+	// --- SURFACE LUNAIRE HAUTE DÉFINITION ---
 	// Grands cratères (Voronoi)
-	float crater_large = voronoi(sphere_uv * 5.0 + vec2(42.0, 17.0));
+	float crater_large = voronoi(sphere_uv * 15.0 + vec2(42.0, 17.0));
 	crater_large = smoothstep(0.1, 0.35, crater_large);
 	
 	// Cratères moyens
-	float crater_med = voronoi(sphere_uv * 12.0 + vec2(13.0, 7.0));
+	float crater_med = voronoi(sphere_uv * 35.0 + vec2(13.0, 7.0));
 	crater_med = smoothstep(0.12, 0.3, crater_med);
 	
 	// Petits cratères
-	float crater_small = voronoi(sphere_uv * 25.0 + vec2(5.0, 31.0));
+	float crater_small = voronoi(sphere_uv * 75.0 + vec2(5.0, 31.0));
 	crater_small = smoothstep(0.15, 0.35, crater_small);
 	
+	// Micro cratères (extra détails)
+	float crater_micro = voronoi(sphere_uv * 150.0 + vec2(88.0, 12.0));
+	crater_micro = smoothstep(0.2, 0.4, crater_micro);
+	
 	// Texture de surface (taches/maria)
-	float maria = gradient_noise(sphere_uv * 3.0 + vec2(100.0, 200.0));
-	float detail = gradient_noise(sphere_uv * 8.0 + vec2(50.0, 80.0));
+	float maria = gradient_noise(sphere_uv * 8.0 + vec2(100.0, 200.0));
+	float detail = gradient_noise(sphere_uv * 25.0 + vec2(50.0, 80.0));
+	float micro_detail = gradient_noise(sphere_uv * 60.0 + vec2(10.0, 20.0)); // extra texture
 	
 	// Combiner
 	float surface = 1.0;
 	surface *= mix(0.7, 1.0, crater_large);   // Grands cratères sombres
 	surface *= mix(0.8, 1.0, crater_med);      // Cratères moyens
 	surface *= mix(0.9, 1.0, crater_small);    // Petits cratères
+	surface *= mix(0.95, 1.0, crater_micro);   // Micro cratères
 	surface *= mix(0.6, 1.0, maria);           // Mers lunaires (zones sombres)
 	surface *= mix(0.85, 1.15, detail);        // Détail fin
+	surface *= mix(0.9, 1.1, micro_detail);    // Micro rugosité
 	
 	// Éclairage : limb darkening (bords plus sombres)
 	float limb = z_sphere;
