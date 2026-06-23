@@ -69,12 +69,7 @@ void fragment() {
 	ALBEDO     = col;
 	METALLIC   = metallic;
 	ROUGHNESS  = mix(roughness, 0.75, foam * 0.4);
-	
-	// Restaurer le reflet logique mais l'étirer horizontalement à l'extrême
-	SPECULAR   = 0.5; 
-	ANISOTROPY = 0.95; // Étirement maximum
-	ANISOTROPY_FLOW = vec2(1.0, 0.0); // Direction horizontale
-	
+	SPECULAR   = 0.05; // Réduire le reflet "logique" au minimum
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 2.0;
 
@@ -88,14 +83,21 @@ void fragment() {
 	vec3 un1 = raw_n1 * 2.0 - 1.0;
 	vec3 un2 = raw_n2 * 2.0 - 1.0;
 	
-	// Utiliser les pentes des vagues pour créer des éclats brillants
-	// peu importe l'angle de la caméra ou de la lumière !
-	// Les seuils sont bas pour s'assurer que ça scintille PARTOUT.
+	// 1. Scintillements intenses (paillettes)
 	float s1 = smoothstep(0.1, 0.4, abs(un1.x));
 	float s2 = smoothstep(0.1, 0.4, abs(un1.y));
 	float s3 = smoothstep(0.1, 0.3, abs(un2.x));
 	float s4 = smoothstep(0.1, 0.3, abs(un2.y));
 	float magic_sparkles = (s1 + s2 + s3 + s4) * 0.4;
 
-	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h + (vec3(0.6, 0.8, 1.0) * magic_sparkles);
+	// 2. Reflet élargi (soft glow sur les pentes des vagues)
+	// On utilise les normales brutes (sans mipmap) pour que le reflet ne disparaisse pas au loin !
+	vec3 raw_nm = mix(raw_n1, raw_n2, 0.5);
+	vec3 un_mix = normalize(raw_nm * 2.0 - 1.0);
+	float wave_slope = 1.0 - un_mix.z; // 0 quand plat, >0 quand pentu
+	float wide_glint = smoothstep(0.01, 0.15, wave_slope) * 0.5;
+
+	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h 
+	           + (vec3(0.6, 0.8, 1.0) * magic_sparkles) 
+	           + (vec3(0.2, 0.4, 0.7) * wide_glint);
 }
