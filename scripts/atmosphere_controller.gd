@@ -116,7 +116,7 @@ func _ready() -> void:
 		moon_mat.set_shader_parameter("fog_blend", 0.4) 
 		moon_mesh_inst.material_override = moon_mat
 	
-	get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
+	# get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
 	
 	# --- HALO LUNAIRE (quad géant derrière la lune) ---
 	var halo = MeshInstance3D.new()
@@ -135,7 +135,7 @@ func _ready() -> void:
 	halo.material_override = halo_mat
 	var halo_pos = moon_pos * 1.02
 	halo.position = halo_pos
-	get_parent().get_node("EnvironmentAssets").add_child(halo)
+	# get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---
 	_generate_stars()
