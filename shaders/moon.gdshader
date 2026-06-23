@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, cull_back, fog_disabled;
 
 uniform sampler2D moon_texture : source_color, filter_linear_mipmap;
 uniform vec3 moon_color : source_color = vec3(0.85, 0.88, 0.95);

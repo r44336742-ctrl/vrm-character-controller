@@ -88,7 +88,7 @@ func _ready() -> void:
 	moon_quad.size = Vector2(1600, 1600) # Lune gigantesque
 	moon_mesh_inst.mesh = moon_quad
 	# Position reculée à l'horizon, base immergée sous l'océan
-	moon_mesh_inst.position = Vector3(-400, 300, -2800) 
+	moon_mesh_inst.position = Vector3(-400, 450, -2800) 
 	
 	var moon_shader = load("res://shaders/moon.gdshader")
 	if moon_shader:
@@ -110,6 +110,7 @@ func _ready() -> void:
 	halo.mesh = halo_quad
 	var halo_mat = StandardMaterial3D.new()
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.disable_fog = true
 	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
 	halo_mat.emission_enabled = true
@@ -117,7 +118,7 @@ func _ready() -> void:
 	halo_mat.emission_energy_multiplier = 1.5
 	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	halo.material_override = halo_mat
-	halo.position = Vector3(-400, 300, -2805) # Derrière la lune
+	halo.position = Vector3(-400, 450, -2805) # Derrière la lune
 	get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---
