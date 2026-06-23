@@ -9,23 +9,24 @@ uniform float roughness = 0.45;
 uniform sampler2D normalmap_a : hint_normal;
 uniform sampler2D normalmap_b : hint_normal;
 
-// --- 5 VAGUES GERSTNER RÉALISTES ---
-// Directions désalignées pour éviter l'effet quadrillage (grid/rhombus pattern)
-// Steepness modéré pour des vagues réalistes sans chevauchement excessif
-uniform vec4 wA = vec4(1.0,   0.35, 0.18, 45.0);  // Houle dominante
-uniform vec4 wB = vec4(0.2,   1.0,  0.15, 30.0);  // Houle croisée
-uniform vec4 wC = vec4(-0.6,  0.8,  0.12, 18.0);  // Vague moyenne
-uniform vec4 wD = vec4(0.85, -0.4,  0.09, 11.0);  // Contre-vague
-uniform vec4 wE = vec4(-0.5, -0.9,  0.06,  7.0);  // Chop
+// --- 6 VAGUES GERSTNER ULTRA-IRRÉGULIÈRES ---
+// Directions basées sur l'Angle d'Or (~137.5 degrés) pour briser la symétrie.
+// Longueurs d'onde basées sur des nombres premiers pour empêcher le bouclage du motif.
+uniform vec4 wA = vec4( 1.000,  0.000, 0.16, 61.0);
+uniform vec4 wB = vec4(-0.737,  0.675, 0.14, 43.0);
+uniform vec4 wC = vec4( 0.087, -0.996, 0.12, 29.0);
+uniform vec4 wD = vec4( 0.605,  0.795, 0.09, 19.0);
+uniform vec4 wE = vec4(-0.983, -0.183, 0.06, 11.0);
+uniform vec4 wF = vec4( 0.843, -0.536, 0.04,  7.0);
 
 varying vec2 world_xz;
 varying float wave_height;
 
-vec3 gerstner(vec4 w, vec3 p, float t) {
+vec3 gerstner(vec4 w, float phase, vec3 p, float t) {
 	float k = 6.28318 / w.w;
 	float c = sqrt(9.8 / k);
 	vec2  d = normalize(w.xy);
-	float f = k * (dot(d, p.xz) - c * t);
+	float f = k * (dot(d, p.xz) - c * t) + phase;
 	float a = w.z / k;
 	return vec3(d.x * a * cos(f),
 	            a * sin(f),
@@ -33,14 +34,16 @@ vec3 gerstner(vec4 w, vec3 p, float t) {
 }
 
 void vertex() {
-	float t = TIME * 0.5;
+	float t = TIME * 0.4; // Légèrement ralenti pour donner un effet de masse d'eau lourde
 
 	vec3 off = vec3(0.0);
-	off += gerstner(wA, VERTEX, t);
-	off += gerstner(wB, VERTEX, t);
-	off += gerstner(wC, VERTEX, t);
-	off += gerstner(wD, VERTEX, t);
-	off += gerstner(wE, VERTEX, t);
+	// Ajout de phases asymétriques pour décaler les vagues
+	off += gerstner(wA, 0.00, VERTEX, t);
+	off += gerstner(wB, 1.23, VERTEX, t);
+	off += gerstner(wC, 2.71, VERTEX, t);
+	off += gerstner(wD, 3.14, VERTEX, t);
+	off += gerstner(wE, 5.05, VERTEX, t);
+	off += gerstner(wF, 0.88, VERTEX, t);
 
 	wave_height = off.y;
 	VERTEX += off;
