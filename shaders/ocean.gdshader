@@ -69,8 +69,17 @@ void fragment() {
 	ALBEDO     = col;
 	METALLIC   = metallic;
 	ROUGHNESS  = mix(roughness, 0.75, foam * 0.4);
+	SPECULAR   = 0.05; // Réduire le reflet "logique" au minimum
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 2.0;
 
-	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h;
+	// --- REFLET MAGIQUE "PARTOUT" (Contre la physique) ---
+	// On crée un effet de paillettes lumineuses réparties sur toutes les vagues
+	float s1 = pow(clamp(dot(n1, normalize(vec3(0.3, 0.1, 1.0))), 0.0, 1.0), 90.0);
+	float s2 = pow(clamp(dot(n2, normalize(vec3(-0.3, -0.1, 1.0))), 0.0, 1.0), 90.0);
+	float s3 = pow(clamp(dot(n1, normalize(vec3(-0.1, 0.4, 1.0))), 0.0, 1.0), 120.0);
+	float s4 = pow(clamp(dot(n2, normalize(vec3(0.1, -0.4, 1.0))), 0.0, 1.0), 120.0);
+	float magic_sparkles = (s1 + s2 + s3 + s4) * 2.5;
+
+	EMISSION = vec3(0.008, 0.016, 0.045) + vec3(0.015, 0.025, 0.05) * h + (vec3(0.6, 0.8, 1.0) * magic_sparkles);
 }

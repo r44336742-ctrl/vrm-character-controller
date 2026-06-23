@@ -102,9 +102,6 @@ func _ready() -> void:
 	moon_quad.size = Vector2(1000, 1000) 
 	moon_mesh_inst.mesh = moon_quad
 	moon_mesh_inst.position = moon_pos
-	# Faire face à la caméra
-	moon_mesh_inst.look_at(Vector3(0, moon_pos.y, 0), Vector3.UP)
-	moon_mesh_inst.rotate_object_local(Vector3.UP, PI)
 	
 	var moon_shader = load("res://shaders/moon.gdshader")
 	if moon_shader:
@@ -114,9 +111,9 @@ func _ready() -> void:
 		if tex:
 			moon_mat.set_shader_parameter("moon_texture", tex)
 		moon_mat.set_shader_parameter("moon_color", Vector3(0.85, 0.88, 0.95))
-		moon_mat.set_shader_parameter("glow_intensity", 2.0) # Moins intense car on simule le brouillard
+		moon_mat.set_shader_parameter("glow_intensity", 2.0) 
 		moon_mat.set_shader_parameter("fog_color", env.fog_light_color)
-		moon_mat.set_shader_parameter("fog_blend", 0.4) # 60% immunité = 40% noyé dans le brouillard
+		moon_mat.set_shader_parameter("fog_blend", 0.4) 
 		moon_mesh_inst.material_override = moon_mat
 	
 	get_parent().get_node("EnvironmentAssets").add_child(moon_mesh_inst)
@@ -133,12 +130,11 @@ func _ready() -> void:
 	halo_mat.albedo_color = Color(0.2, 0.3, 0.5, 0.0)
 	halo_mat.emission_enabled = true
 	halo_mat.emission = Color(0.15, 0.2, 0.35)
-	halo_mat.emission_energy_multiplier = 1.5 * 0.6 # 60% immunité = baissé de 40%
+	halo_mat.emission_energy_multiplier = 1.5 * 0.6 
+	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	halo.material_override = halo_mat
 	var halo_pos = moon_pos * 1.02
 	halo.position = halo_pos
-	halo.look_at(Vector3(0, moon_pos.y, 0), Vector3.UP)
-	halo.rotate_object_local(Vector3.UP, PI)
 	get_parent().get_node("EnvironmentAssets").add_child(halo)
 	
 	# --- ÉTOILES ---

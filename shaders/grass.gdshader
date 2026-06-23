@@ -60,5 +60,6 @@ void fragment() {
 	// Supprime les ombres dures sur les milliers de petits polygones
 	// et donne un effet soyeux (volumétrique).
 	NORMAL = vec3(0.0, 1.0, 0.0);
-	ROUGHNESS = 0.5;
+	ROUGHNESS = 0.9;
+	SPECULAR = 0.05;
 }
