@@ -80,7 +80,7 @@ func _ready() -> void:
 	# 5. Generate Grass
 	generate_grass()
 
-var grass_multimesh: MultiMeshInstance3D
+var grass_material: ShaderMaterial
 
 func generate_grass() -> void:
 	print("TerrainGenerator: Generating grass...")
@@ -88,24 +88,22 @@ func generate_grass() -> void:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
-	var blades_per_clump = 15
-	var max_height = 0.85
-	var min_height = 0.45
-	var segments = 3
-	var base_width = 0.06
+	var blades_per_clump = 18
+	var max_height = 0.9
+	var min_height = 0.5
+	var segments = 2
+	var base_width = 0.08
 	var v_count = 0
 	
 	# Generate a single clump of grass at origin (0,0,0)
 	for b in range(blades_per_clump):
-		# Random parameters per blade
 		var angle = (float(b) / blades_per_clump) * PI * 2.0 + randf_range(-0.3, 0.3)
 		var h = randf_range(min_height, max_height)
-		var curve_amount = randf_range(0.25, 0.6) # Leans out much more for volume
+		var curve_amount = randf_range(0.3, 0.7) # Leans out much more
 		
 		var dir_x = cos(angle)
 		var dir_z = sin(angle)
 		
-		# The perpendicular vector for width
 		var right_x = cos(angle + PI/2.0)
 		var right_z = sin(angle + PI/2.0)
 		
@@ -113,20 +111,19 @@ func generate_grass() -> void:
 		
 		for i in range(segments + 1):
 			var t = float(i) / segments
-			var t_curve = t * t # Parabolic curve
+			var t_curve = t * t 
 			
 			var y = t * h
 			var x_offset = dir_x * t_curve * curve_amount
 			var z_offset = dir_z * t_curve * curve_amount
 			
-			var current_width = lerp(base_width, 0.0, t) # Taper to 0
+			var current_width = lerp(base_width, 0.0, t) 
 			
 			var left_x = x_offset - right_x * current_width * 0.5
 			var left_z = z_offset - right_z * current_width * 0.5
 			var right_x_pos = x_offset + right_x * current_width * 0.5
 			var right_z_pos = z_offset + right_z * current_width * 0.5
 			
-			# UV X maps to 0..1 across the blade, Y maps to 0..1 from bottom to top
 			st.set_uv(Vector2(0.0, t))
 			st.add_vertex(Vector3(left_x, y, left_z))
 			
@@ -135,10 +132,9 @@ func generate_grass() -> void:
 			
 			v_count += 2
 			
-		# Generate indices for this blade
 		for i in range(segments):
 			var base = v_start + i * 2
-			# Front face
+			# Front face only! cull_disabled in shader handles back face
 			st.add_index(base)
 			st.add_index(base + 1)
 			st.add_index(base + 2)
@@ -147,26 +143,13 @@ func generate_grass() -> void:
 			st.add_index(base + 3)
 			st.add_index(base + 2)
 			
-			# Back face
-			st.add_index(base)
-			st.add_index(base + 2)
-			st.add_index(base + 1)
-			
-			st.add_index(base + 1)
-			st.add_index(base + 2)
-			st.add_index(base + 3)
-
 	st.generate_normals()
 	var grass_mesh = st.commit()
 	
-	var multimesh = MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = grass_mesh
-	
-	var instances = 100000
+	var instances = 150000
 	var valid_positions = []
 	
-	for i in range(250000):
+	for i in range(350000):
 		var px = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
 		var pz = randf_range(-terrain_size / 2.0, terrain_size / 2.0)
 		
@@ -186,36 +169,56 @@ func generate_grass() -> void:
 		if valid_positions.size() >= instances:
 			break
 			
-	multimesh.instance_count = valid_positions.size()
+	# CHUNKING SYSTEM FOR FRUSTUM CULLING
+	var chunk_size = 80.0
+	var chunks = {}
 	
 	for i in range(valid_positions.size()):
 		var pos = valid_positions[i]
+		var cx = floor(pos.x / chunk_size)
+		var cz = floor(pos.z / chunk_size)
+		var cpos = Vector2(cx, cz)
+		
+		if not chunks.has(cpos):
+			chunks[cpos] = []
+			
 		var transform = Transform3D()
 		transform = transform.rotated_local(Vector3.UP, randf() * PI * 2.0)
 		var scale = randf_range(0.7, 1.4)
 		transform = transform.scaled_local(Vector3(scale, scale, scale))
 		transform.origin = pos
-		multimesh.set_instance_transform(i, transform)
+		chunks[cpos].append(transform)
 		
-	grass_multimesh = MultiMeshInstance3D.new()
-	grass_multimesh.multimesh = multimesh
+	grass_material = ShaderMaterial.new()
+	grass_material.shader = load("res://shaders/grass.gdshader")
 	
-	var grass_mat = ShaderMaterial.new()
-	grass_mat.shader = load("res://shaders/grass.gdshader")
+	var grass_parent = Node3D.new()
+	grass_parent.name = "GrassChunks"
+	add_child(grass_parent)
+	
+	for cpos in chunks:
+		var arr = chunks[cpos]
+		var mm = MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = grass_mesh
+		mm.instance_count = arr.size()
 		
-	grass_multimesh.material_override = grass_mat
-	
-	# Grass casts no shadows to save performance on 35k instances
-	grass_multimesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	
-	add_child(grass_multimesh)
-	print("TerrainGenerator: Grass generated with %d instances." % multimesh.instance_count)
+		for i in range(arr.size()):
+			mm.set_instance_transform(i, arr[i])
+			
+		var mmi = MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = grass_material
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		grass_parent.add_child(mmi)
+		
+	print("TerrainGenerator: Grass generated with %d chunks and %d instances." % [chunks.size(), valid_positions.size()])
 
 func _process(delta: float) -> void:
-	if grass_multimesh:
+	if grass_material:
 		var player = get_tree().get_first_node_in_group("player")
-		if player and grass_multimesh.material_override:
-			grass_multimesh.material_override.set_shader_parameter("player_position", player.global_position)
+		if player:
+			grass_material.set_shader_parameter("player_position", player.global_position)
 
 func get_height(px: float, pz: float) -> float:
 	var h = noise.get_noise_2d(px, pz) * 6.0 
