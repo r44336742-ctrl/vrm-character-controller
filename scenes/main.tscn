@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://cspsl8b4i2agw"]
+[gd_scene load_steps=18 format=3 uid="uid://cspsl8b4i2agw"]
 
 [ext_resource type="PackedScene" path="res://scenes/character_vroid.tscn" id="1_char_scene"]
 [ext_resource type="Script" path="res://scripts/atmosphere_controller.gd" id="3_rupic"]
@@ -366,6 +366,11 @@ script = ExtResource("7_ocean")
 
 [node name="Character" parent="." instance=ExtResource("1_char_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 55)
+move_speed = null
+sprint_speed = null
+rotation_speed = null
+acceleration = null
+friction = null
 
 [node name="AtmosphereController" type="Node3D" parent="."]
 script = ExtResource("3_rupic")
