@@ -124,10 +124,13 @@ func _update_hair_physics(delta: float) -> void:
 		var length_limit = 0.18
 		
 		if is_hair:
-			stiffness = 0.08
-			drag = 0.12
-			gravity_force = 1.0
-			wind_force = wind_world * (H_WIND_MUL * 1.5)
+			var parent_name = skel.get_bone_name(parent_idx)
+			var is_root = not ("Hair" in parent_name)
+			
+			stiffness = 0.8 if is_root else 0.4  # Très ferme à la racine, souple aux pointes
+			drag = 0.15                          # Amortit pour éviter les rebonds
+			gravity_force = 4.0                  # Tombe bien vers le sol
+			wind_force = wind_world * 1.0        # Beaucoup moins affecté par le vent
 			length_limit = 0.30
 
 		var bone_len = minf(_hair_bone_lengths[idx], length_limit)
