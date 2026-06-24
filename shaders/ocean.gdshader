@@ -80,28 +80,50 @@ void fragment() {
 
 	ALBEDO     = col;
 	METALLIC   = metallic;
+	// L'eau est très lisse (roughness faible) pour un effet mouillé/réfléchissant
 	ROUGHNESS  = mix(0.15, 0.75, foam * 0.4);
-	SPECULAR   = 0.5; // On réactive le spéculaire standard pour le vrai reflet de la lune !
+	SPECULAR   = 0.0; // On désactive le spéculaire standard car on va créer le nôtre dans light() !
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = 5.0;
 
-	// --- REFLET OMNIDIRECTIONNEL "PARTOUT" ---
-	// Au lieu de tricher avec la lumière (ce qui causait le bug du halo qui suit la caméra),
-	// on génère un scintillement ultra-détaillé directement sur toutes les pentes des vagues !
-	// Ainsi, l'eau est hyper détaillée sur 100% de sa surface, peu importe où on regarde.
-	vec3 raw_nm = mix(n1, n2, 0.5);
-	vec3 un_mix = normalize(raw_nm * 2.0 - 1.0);
-	float steepness = 1.0 - un_mix.z; 
-	float omni_spec = smoothstep(0.01, 0.15, steepness);
+	// Émission de base très légère pour l'ambiance nocturne de l'eau
+	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h;
+}
+
+void light() {
+	// --- LUMIÈRE DIFFUSE STANDARD ---
+	float NdotL = max(0.0, dot(NORMAL, LIGHT));
+	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
+	
+	// --- REFLET SPÉCULAIRE "ÉLARGI FOIS MILLE" ---
+	// On élargit le reflet en écrasant fortement la composante horizontale (X)
+	// mais sans la mettre à zéro (pour éviter les bugs mathématiques d'écran blanc !)
+	vec3 H = normalize(VIEW + LIGHT);
+	vec3 wide_H = normalize(vec3(H.x * 0.05, H.y, H.z));
+	
+	// On calcule le reflet spéculaire avec une forte concentration (brillance)
+	float spec = pow(max(dot(NORMAL, wide_H), 0.0), 30.0);
+	
+	// CORRECTION BUG ÉCRAN BLANC : 
+	// On annule le reflet si la caméra tourne le dos à la lumière (quand la lumière passe derrière la caméra)
+	// En espace vue (VIEW), l'axe Z pointe vers l'arrière de la caméra. 
+	// Si LIGHT.z > 0, la lumière est derrière nous !
+	float facing_light = smoothstep(0.2, -0.2, LIGHT.z);
+	spec *= facing_light;
 	
 	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
+	// On crée un bruit très basse fréquence basé sur la position mondiale de l'eau
+	// pour simuler d'immenses nuages invisibles qui masquent légèrement la lune.
+	// La fréquence est très basse pour que les transitions (fondus) fassent des centaines de mètres.
 	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
+	
+	// cloud_shadow varie de -1 à 1. On le convertit en un multiplicateur d'opacité entre 0.65 et 0.80
+	// (0.65 = baisse de 35%, 0.80 = baisse de 20%)
 	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
 	
-	// On applique l'ombre douce sur notre reflet omnidirectionnel
-	float final_omni = omni_spec * opacity_multiplier * 0.8;
-
-	// Émission : ambiance de base + notre super reflet détaillé partout
-	EMISSION = vec3(0.005, 0.010, 0.025) + vec3(0.010, 0.020, 0.04) * h 
-	           + vec3(0.5, 0.65, 0.9) * final_omni;
+	// Le multiplicateur de base était 1.4. On lui applique la réduction dynamique.
+	float final_power = 1.4 * opacity_multiplier;
+	
+	// On ajoute ce reflet gigantesque et nuancé à la lumière spéculaire
+	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
 }

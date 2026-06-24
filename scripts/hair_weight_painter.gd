@@ -166,59 +166,73 @@ func _paint_weights() -> void:
 		
 		arrays[Mesh.ARRAY_BONES] = new_bones
 		arrays[Mesh.ARRAY_WEIGHTS] = new_weights
-		var fmt = mesh.surface_get_format(surf_idx)
-		new_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, fmt)
+		new_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		new_mesh.surface_set_material(new_mesh.get_surface_count() - 1, mesh.surface_get_material(surf_idx))
 		painted_total += painted_count
 	
 	mesh_node.mesh = new_mesh
 	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices using BIND indices")
 
-	# ── Appliquer le vertex shader vent par-dessus le matériau original ──
-	_apply_wind_shader(mesh_node, new_mesh, y_min, y_max)
+	# ── DIAGNOSTIC DEMANDÉ PAR L'UTILISATEUR ──
+	# Au lieu d'appliquer le shader de vent, on va colorer le mesh pour afficher
+	# les poids de skinning réels d'un os précis (J_Sec_Hair1_01).
+	_visualize_weights_for_bone(mesh_node, new_mesh, "J_Sec_Hair1_01")
 
-func _apply_wind_shader(mesh_node: MeshInstance3D, new_mesh: ArrayMesh, y_min: float, y_max: float) -> void:
-	var wind_shader = load("res://shaders/hair_wind.gdshader") as Shader
-	if wind_shader == null:
-		push_warning("[HairWeightPainter] Impossible de charger res://shaders/hair_wind.gdshader")
-		return
-
-	for surf_idx in range(new_mesh.get_surface_count()):
-		var orig_mat = new_mesh.surface_get_material(surf_idx)
-		var std_mat = orig_mat as StandardMaterial3D
+func _visualize_weights_for_bone(mesh_node: MeshInstance3D, mesh: ArrayMesh, target_bone_name: String) -> void:
+	var skin: Skin = mesh_node.skin
+	var target_bind = -1
+	if skin:
+		for i in range(skin.get_bind_count()):
+			if skin.get_bind_name(i) == target_bone_name:
+				target_bind = i
+				break
+	
+	print("[Diagnostic] Visualisation des poids pour l'os : ", target_bone_name, " (Bind index: ", target_bind, ")")
+	
+	if target_bind == -1:
+		print("[Diagnostic] ERREUR : L'os ", target_bone_name, " n'a pas été trouvé dans le Skin du mesh !")
+		# On colorie tout en bleu pour signifier 0
+	
+	var vis_mesh = ArrayMesh.new()
+	for surf_idx in range(mesh.get_surface_count()):
+		var arrays = mesh.surface_get_arrays(surf_idx)
+		var verts = arrays[Mesh.ARRAY_VERTEX]
+		var bones = arrays[Mesh.ARRAY_BONES]
+		var weights = arrays[Mesh.ARRAY_WEIGHTS]
 		
-		var smat = ShaderMaterial.new()
-		smat.shader = wind_shader
-
-		# Copier les propriétés du matériau VRM original
-		if std_mat:
-			if std_mat.albedo_texture:
-				smat.set_shader_parameter("albedo_tex", std_mat.albedo_texture)
-			smat.set_shader_parameter("albedo_color",  std_mat.albedo_color)
-			smat.set_shader_parameter("roughness",     std_mat.roughness)
-			smat.set_shader_parameter("metallic",      std_mat.metallic)
-			# Alpha scissor
-			if std_mat.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR:
-				smat.set_shader_parameter("alpha_scissor", std_mat.alpha_scissor_threshold)
-			else:
-				smat.set_shader_parameter("alpha_scissor", 0.1)
+		var colors = PackedColorArray()
+		colors.resize(verts.size())
+		
+		var max_weight = 0.0
+		if bones != null and weights != null and target_bind != -1:
+			for v in range(verts.size()):
+				var w = 0.0
+				for i in range(4):
+					if bones[v*4 + i] == target_bind:
+						w += weights[v*4 + i]
+				
+				# Rouge = Poids fort (max 0.35 d'après le script), Bleu = 0
+				# On normalise un peu (w / 0.35) pour mieux voir le rouge
+				var color_intensity = clampf(w / 0.35, 0.0, 1.0)
+				colors[v] = Color(color_intensity, 0.0, 1.0 - color_intensity, 1.0)
+				max_weight = maxf(max_weight, w)
 		else:
-			# Fallback : texture blanche, ciseaux conservateurs
-			smat.set_shader_parameter("albedo_color",  Color(1.0, 1.0, 1.0, 1.0))
-			smat.set_shader_parameter("alpha_scissor", 0.1)
-
-		# Paramètres géométriques du vent (calibrés sur les Y mesurés)
-		smat.set_shader_parameter("hair_root_y",     y_min)
-		smat.set_shader_parameter("hair_tip_y",      y_max)
-		smat.set_shader_parameter("wind_strength",   0.022)
-		smat.set_shader_parameter("wind_speed_slow", 0.75)
-		smat.set_shader_parameter("wind_speed_fast", 2.20)
-		smat.set_shader_parameter("wind_freq_y",     18.0)
-		smat.set_shader_parameter("wind_freq_x",     12.0)
-
-		new_mesh.surface_set_material(surf_idx, smat)
-
-	print("[HairWeightPainter v2] Wind shader applied to ", new_mesh.get_surface_count(), " surfaces")
+			for v in range(verts.size()):
+				colors[v] = Color(0.0, 0.0, 1.0, 1.0) # Tout bleu
+		
+		print("[Diagnostic] Surface ", surf_idx, " -> Poids maximum trouvé : ", max_weight)
+		
+		arrays[Mesh.ARRAY_COLOR] = colors
+		vis_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		
+		var mat = StandardMaterial3D.new()
+		mat.vertex_color_use_as_albedo = true
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		vis_mesh.surface_set_material(surf_idx, mat)
+		
+	mesh_node.mesh = vis_mesh
+	print("[Diagnostic] Matériau de debug appliqué. Le mesh doit apparaître rouge/bleu.")
 
 # Calcule la rest pose globale d'un os (en remontant la chaîne parentale)
 func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
