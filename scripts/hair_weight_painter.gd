@@ -171,6 +171,14 @@ func _paint_weights() -> void:
 		painted_total += painted_count
 	
 	mesh_node.mesh = new_mesh
+	
+	# --- HACK DE DIAGNOSTIC ---
+	# Tenter de forcer le RenderingServer de Godot à reconstruire les buffers de skinning GPU
+	var current_skin = mesh_node.skin
+	mesh_node.skin = null
+	mesh_node.skin = current_skin
+	# --------------------------
+	
 	print("[HairWeightPainter v2] Done! Painted ", painted_total, "/", mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), " vertices using BIND indices")
 
 	# ── DIAGNOSTIC DEMANDÉ PAR L'UTILISATEUR ──
@@ -242,4 +250,21 @@ func _get_bone_global_rest(skel: Skeleton3D, bone_idx: int) -> Transform3D:
 		result = skel.get_bone_rest(parent_idx) * result
 		parent_idx = skel.get_bone_parent(parent_idx)
 	return result
+
+func _process(_delta):
+	var mesh_node = get_parent().find_children("*Hair*", "MeshInstance3D", true)
+	if mesh_node.is_empty(): return
+	var skel = mesh_node[0].get_node(mesh_node[0].skeleton) as Skeleton3D
+	if not skel: return
+	
+	var bone_idx = skel.find_bone("J_Sec_Hair1_01")
+	if bone_idx == -1: return
+	
+	var time = Time.get_ticks_msec() / 1000.0
+	var angle = sin(time * 5.0) * 0.5
+	var q = Quaternion(Vector3(1, 0, 0), angle)
+	
+	var rest = skel.get_bone_global_rest(bone_idx)
+	var test_transform = Transform3D(Basis(q) * rest.basis, rest.origin)
+	skel.set_bone_global_pose_override(bone_idx, test_transform, 1.0, true)
 
