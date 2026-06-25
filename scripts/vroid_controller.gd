@@ -32,6 +32,7 @@ var _hair_bone_lengths:    Array[float]   = []  # longueur physique du brin (m)
 var _hair_tail_cur:        Array[Vector3] = []  # position pointe courante (world)
 var _hair_tail_prv:        Array[Vector3] = []  # position pointe précédente (world)
 var _hair_initialized: bool = false
+var _hair_skel_prev_origin: Vector3 = Vector3.ZERO
 var _debug_frame: int = 0
 
 # Constantes physiques
@@ -91,6 +92,7 @@ func _init_hair_physics(skeleton: Skeleton3D) -> void:
 		_hair_tail_prv.append(tail_world)
 
 	_hair_initialized = true
+	_hair_skel_prev_origin = skeleton.global_transform.origin
 	print("[HairPhysics] Ready: ", _hair_bone_indices.size(), " bones simulated")
 
 func _update_hair_physics(delta: float) -> void:
@@ -102,6 +104,14 @@ func _update_hair_physics(delta: float) -> void:
 	var skel_xf_inv = skel_xf.affine_inverse()
 	var wind_world = WindSystem.get_wind_at(global_position)
 	var dt2 = delta * delta
+	
+	var skel_delta = skel_xf.origin - _hair_skel_prev_origin
+	_hair_skel_prev_origin = skel_xf.origin
+
+	# Calcul de la puissance dynamique (2.0 = idle, 3.0 = walk, 4.0 = sprint)
+	var current_speed = velocity.length()
+	var speed_ratio = clampf(current_speed / sprint_speed, 0.0, 1.0)
+	var hair_power = lerpf(2.0, 4.0, speed_ratio)
 
 	for idx in range(_hair_bone_indices.size()):
 		var bone_idx   = _hair_bone_indices[idx]
@@ -127,10 +137,11 @@ func _update_hair_physics(delta: float) -> void:
 			var parent_name = skel.get_bone_name(parent_idx)
 			var is_root = not ("Hair" in parent_name)
 			
-			stiffness = 0.8 if is_root else 0.4  # Très ferme à la racine, souple aux pointes
-			drag = 0.15                          # Amortit pour éviter les rebonds
-			gravity_force = 4.0                  # Tombe bien vers le sol
-			wind_force = wind_world * 1.0        # Beaucoup moins affecté par le vent
+			stiffness = 0.8 if is_root else 0.4  # STRICTEMENT FIXE (évite de voir le crâne)
+			drag = 0.15
+			gravity_force = 4.0
+			# La force du vent est scalée par la vitesse (idle=1.0, sprint=2.0)
+			wind_force = wind_world * (hair_power * 0.5)
 			length_limit = 0.30
 
 		var bone_len = minf(_hair_bone_lengths[idx], length_limit)
@@ -140,6 +151,14 @@ func _update_hair_physics(delta: float) -> void:
 
 		var cur = _hair_tail_cur[idx]
 		var prv = _hair_tail_prv[idx]
+		
+		var inertia = H_INERTIA
+		if is_hair:
+			# L'inertie est scalée par la vitesse (idle=0.04, sprint=0.08)
+			inertia = 0.02 * hair_power
+			
+		cur += skel_delta * (1.0 - inertia)
+		prv += skel_delta * (1.0 - inertia)
 		
 		var vel = (cur - prv) * (1.0 - drag)
 		var next = cur + vel + Vector3(0, -gravity_force, 0)*dt2 + wind_force*dt2 + (rest_tail_world - cur)*stiffness
