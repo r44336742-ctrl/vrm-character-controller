@@ -155,8 +155,8 @@ func _update_hair_physics(delta: float) -> void:
 			stiffness = 0.8 if is_root else 0.4  # STRICTEMENT FIXE (évite de voir le crâne)
 			drag = 0.15
 			gravity_force = 4.0
-			# La force du vent est scalée par la vitesse et réduite pour la frange
-			wind_force = wind_world * (hair_power * 0.5 * front_multiplier)
+			# La force du vent est scalée par la vitesse et réduite globalement de moitié
+			wind_force = wind_world * (hair_power * 0.25 * front_multiplier)
 			length_limit = 0.30
 
 		var bone_len = minf(_hair_bone_lengths[idx], length_limit)
@@ -170,8 +170,8 @@ func _update_hair_physics(delta: float) -> void:
 		var inertia = H_INERTIA / 3.0 # Réduit au tiers pour la robe
 		if is_hair:
 			var front_multiplier = 0.5 if is_front else 1.0
-			# L'inertie est scalée par la vitesse et réduite pour la frange
-			inertia = 0.02 * hair_power * front_multiplier
+			# L'inertie est scalée par la vitesse et réduite globalement de moitié
+			inertia = 0.01 * hair_power * front_multiplier
 			
 		cur += skel_delta * (1.0 - inertia)
 		prv += skel_delta * (1.0 - inertia)
