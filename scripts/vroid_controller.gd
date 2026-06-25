@@ -227,8 +227,8 @@ func _ready() -> void:
 		
 		# Charger les 3 animations
 		_load_mixamo_anim("res://assets/models/animations/idle.fbx", "idle", skeleton)
-		_load_mixamo_anim("res://assets/models/animations/walk_new.fbx", "walk", skeleton)
-		_load_mixamo_anim("res://assets/models/animations/run_new.fbx", "run", skeleton)
+		_load_mixamo_anim("res://assets/models/animations/walk.fbx", "walk", skeleton)
+		_load_mixamo_anim("res://assets/models/animations/run.fbx", "run", skeleton)
 
 		_strip_root_motion("idle")
 		_strip_root_motion("walk")
