@@ -404,8 +404,8 @@ func _load_mixamo_anim(fbx_path: String, target_anim_name: String, skeleton: Ske
 					if vrm_bone != "":
 						var vrm_idx = skeleton.find_bone(vrm_bone)
 						
-						# Fix posture only for the spine/head. Limbs use raw rotations because their axes differ.
-						var is_spine = vrm_bone in ["Hips", "Spine", "Chest", "UpperChest", "Neck", "Head"]
+						# Fix posture for all bones. Previously limbs used raw rotations which caused 180 degree knee twists (candy wrapper effect).
+						var is_spine = true # Appliquer à TOUS les os
 						
 						if type == Animation.TYPE_ROTATION_3D and vrm_idx != -1 and is_spine:
 							# Rechercher l'os Mixamo dans le fichier FBX pour calculer le delta
