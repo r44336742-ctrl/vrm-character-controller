@@ -80,6 +80,12 @@ func _init_hair_physics(skeleton: Skeleton3D) -> void:
 			var rest_local = skeleton.get_bone_rest(i)
 			local_dir = (rest_local.basis * Vector3(0, -1, 0)).normalized()
 
+		# Fix VRoid export artifact : SkirtFront/SkirtBack ont leur direction de repos
+		# qui pointe vers le HAUT — forcer vers le bas pour que la stiffness attire
+		# la robe dans la bonne direction (en dessous de la hanche, pas au-dessus).
+		if "Skirt" in bname and local_dir.y > 0.0:
+			local_dir = Vector3(0, -1, 0)
+
 		var is_front = false
 		if "Hair" in bname:
 			var curr_for_root = i
