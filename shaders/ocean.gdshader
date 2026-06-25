@@ -95,35 +95,34 @@ void light() {
 	float NdotL = max(0.0, dot(NORMAL, LIGHT));
 	DIFFUSE_LIGHT += clamp(NdotL, 0.0, 1.0) * ATTENUATION * LIGHT_COLOR * ALBEDO;
 	
-	// --- REFLET SPÉCULAIRE "ÉLARGI FOIS MILLE" ---
-	// On élargit le reflet en écrasant fortement la composante horizontale (X)
-	// mais sans la mettre à zéro (pour éviter les bugs mathématiques d'écran blanc !)
+	// --- REFLET SPÉCULAIRE UNIFORME SUR TOUTE LA SURFACE ---
+	// On utilise le half-vector standard (sans écrasement horizontal) pour que les normalmaps
+	// produisent du clapotis visible partout sur l'eau, pas seulement dans un ovale centré sur la lune.
 	vec3 H = normalize(VIEW + LIGHT);
-	vec3 wide_H = normalize(vec3(H.x * 0.05, H.y, H.z));
-	
-	// On calcule le reflet spéculaire avec une forte concentration (brillance)
-	float spec = pow(max(dot(NORMAL, wide_H), 0.0), 30.0);
-	
-	// CORRECTION BUG ÉCRAN BLANC : 
+
+	// Spéculaire modulé par la normalmap (qui encode le clapotis micro-vague)
+	float spec = pow(max(dot(NORMAL, H), 0.0), 80.0);
+
+	// CORRECTION BUG ÉCRAN BLANC :
 	// On annule le reflet si la caméra tourne le dos à la lumière (quand la lumière passe derrière la caméra)
-	// En espace vue (VIEW), l'axe Z pointe vers l'arrière de la caméra. 
+	// En espace vue (VIEW), l'axe Z pointe vers l'arrière de la caméra.
 	// Si LIGHT.z > 0, la lumière est derrière nous !
 	float facing_light = smoothstep(0.2, -0.2, LIGHT.z);
 	spec *= facing_light;
-	
+
 	// --- OMBRES DOUCES (Réduction de 20% à 35% aléatoire) ---
 	// On crée un bruit très basse fréquence basé sur la position mondiale de l'eau
 	// pour simuler d'immenses nuages invisibles qui masquent légèrement la lune.
 	// La fréquence est très basse pour que les transitions (fondus) fassent des centaines de mètres.
 	float cloud_shadow = sin(world_xz.x * 0.002 + TIME * 0.01) * cos(world_xz.y * 0.0015 - TIME * 0.015);
-	
+
 	// cloud_shadow varie de -1 à 1. On le convertit en un multiplicateur d'opacité entre 0.65 et 0.80
 	// (0.65 = baisse de 35%, 0.80 = baisse de 20%)
 	float opacity_multiplier = mix(0.65, 0.80, (cloud_shadow + 1.0) * 0.5);
-	
-	// Le multiplicateur de base était 1.4. On lui applique la réduction dynamique.
-	float final_power = 1.4 * opacity_multiplier;
-	
-	// On ajoute ce reflet gigantesque et nuancé à la lumière spéculaire
+
+	// On conserve un final_power plus modeste maintenant que le reflet est réparti sur tout l'océan
+	float final_power = 1.1 * opacity_multiplier;
+
+	// On ajoute ce reflet nuancé à la lumière spéculaire
 	SPECULAR_LIGHT += spec * LIGHT_COLOR * ATTENUATION * final_power;
 }
