@@ -36,12 +36,19 @@ var _hair_initialized: bool = false
 var _hair_skel_prev_origin: Vector3 = Vector3.ZERO
 var _debug_frame: int = 0
 
-# Constantes physiques
+# Constantes physiques — cheveux
 const H_DRAG:      float = 0.06   # Très faible = oscille longtemps
 const H_STIFF:     float = 0.03   # Très souple = peu de rappel
 const H_GRAVITY:   float = 3.0    # Gravité forte = mèches tombent
 const H_WIND_MUL:  float = 5.0    # Vent très fort = mouvement visible
 const H_INERTIA:   float = 0.25
+
+# Constantes physiques — robe (tissu lourd, mouvement uniforme)
+const SK_DRAG:     float = 0.38   # Fort amortissement — tissu lourd s'arrête vite
+const SK_STIFF:    float = 0.22   # Rappel ferme vers la pose de repos
+const SK_GRAVITY:  float = 5.0    # Tissu lourd tombe bien
+const SK_WIND:     float = 0.08   # Quasi insensible au vent
+const SK_INERTIA:  float = 0.006  # Presque solidaire du squelette = pas de swing
 
 func _init_hair_physics(skeleton: Skeleton3D) -> void:
 	_hair_skeleton = skeleton
@@ -147,11 +154,12 @@ func _update_hair_physics(delta: float) -> void:
 		
 		var rest_dir_skel = (rest_global_basis * local_dir).normalized()
 
-		var stiffness = H_STIFF
-		var drag = H_DRAG
-		var gravity_force = H_GRAVITY
-		var wind_force = wind_world * (H_WIND_MUL / 3.0) # Réduit au tiers pour la robe
+		var stiffness = SK_STIFF
+		var drag = SK_DRAG
+		var gravity_force = SK_GRAVITY
+		var wind_force = wind_world * SK_WIND
 		var length_limit = 0.18
+		var inertia = SK_INERTIA
 		
 		if is_hair:
 			var parent_name = skel.get_bone_name(parent_idx)
@@ -164,6 +172,8 @@ func _update_hair_physics(delta: float) -> void:
 			# La force du vent est scalée par la vitesse et réduite globalement de moitié
 			wind_force = wind_world * (hair_power * 0.25 * front_multiplier)
 			length_limit = 0.30
+			# L'inertie est scalée par la vitesse et réduite globalement de moitié
+			inertia = 0.01 * hair_power * front_multiplier
 
 		var bone_len = minf(_hair_bone_lengths[idx], length_limit)
 		var root_world = skel_xf * bone_origin
@@ -172,12 +182,6 @@ func _update_hair_physics(delta: float) -> void:
 
 		var cur = _hair_tail_cur[idx]
 		var prv = _hair_tail_prv[idx]
-		
-		var inertia = H_INERTIA / 3.0 # Réduit au tiers pour la robe
-		if is_hair:
-			var front_multiplier = 0.5 if is_front else 1.0
-			# L'inertie est scalée par la vitesse et réduite globalement de moitié
-			inertia = 0.01 * hair_power * front_multiplier
 			
 		cur += skel_delta * (1.0 - inertia)
 		prv += skel_delta * (1.0 - inertia)
