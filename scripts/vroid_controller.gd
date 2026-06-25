@@ -31,6 +31,7 @@ var _hair_local_dirs:      Array[Vector3] = []  # Direction vers l'enfant en loc
 var _hair_bone_lengths:    Array[float]   = []  # longueur physique du brin (m)
 var _hair_tail_cur:        Array[Vector3] = []  # position pointe courante (world)
 var _hair_tail_prv:        Array[Vector3] = []  # position pointe précédente (world)
+var _hair_is_front:        Array[bool]    = []  # vrai si c'est la frange (z > 0)
 var _hair_initialized: bool = false
 var _hair_skel_prev_origin: Vector3 = Vector3.ZERO
 var _debug_frame: int = 0
@@ -79,10 +80,22 @@ func _init_hair_physics(skeleton: Skeleton3D) -> void:
 			var rest_local = skeleton.get_bone_rest(i)
 			local_dir = (rest_local.basis * Vector3(0, -1, 0)).normalized()
 
+		var is_front = false
+		if "Hair" in bname:
+			var curr_for_root = i
+			while curr_for_root >= 0:
+				var parent_of_curr = skeleton.get_bone_parent(curr_for_root)
+				if parent_of_curr < 0 or not ("Hair" in skeleton.get_bone_name(parent_of_curr)):
+					var root_rest = skeleton.get_bone_rest(curr_for_root)
+					is_front = root_rest.origin.z > 0.0
+					break
+				curr_for_root = parent_of_curr
+
 		_hair_bone_indices.append(i)
 		_hair_parent_indices.append(parent_idx)
 		_hair_local_dirs.append(local_dir)
 		_hair_bone_lengths.append(bone_len)
+		_hair_is_front.append(is_front)
 
 		# Position initiale de la pointe
 		var bone_global_rest = _get_bone_global_rest(skeleton, i)
@@ -119,6 +132,7 @@ func _update_hair_physics(delta: float) -> void:
 		var local_dir  = _hair_local_dirs[idx]
 		var bname      = skel.get_bone_name(bone_idx)
 		var is_hair    = "Hair" in bname
+		var is_front   = _hair_is_front[idx]
 
 		var parent_gp = skel.get_bone_global_pose(parent_idx)
 		var bone_rest = skel.get_bone_rest(bone_idx)
@@ -136,12 +150,13 @@ func _update_hair_physics(delta: float) -> void:
 		if is_hair:
 			var parent_name = skel.get_bone_name(parent_idx)
 			var is_root = not ("Hair" in parent_name)
+			var front_multiplier = 0.5 if is_front else 1.0
 			
 			stiffness = 0.8 if is_root else 0.4  # STRICTEMENT FIXE (évite de voir le crâne)
 			drag = 0.15
 			gravity_force = 4.0
-			# La force du vent est scalée par la vitesse (idle=1.0, sprint=2.0)
-			wind_force = wind_world * (hair_power * 0.5)
+			# La force du vent est scalée par la vitesse et réduite pour la frange
+			wind_force = wind_world * (hair_power * 0.5 * front_multiplier)
 			length_limit = 0.30
 
 		var bone_len = minf(_hair_bone_lengths[idx], length_limit)
@@ -154,8 +169,9 @@ func _update_hair_physics(delta: float) -> void:
 		
 		var inertia = H_INERTIA
 		if is_hair:
-			# L'inertie est scalée par la vitesse (idle=0.04, sprint=0.08)
-			inertia = 0.02 * hair_power
+			var front_multiplier = 0.5 if is_front else 1.0
+			# L'inertie est scalée par la vitesse et réduite pour la frange
+			inertia = 0.02 * hair_power * front_multiplier
 			
 		cur += skel_delta * (1.0 - inertia)
 		prv += skel_delta * (1.0 - inertia)
@@ -427,5 +443,3 @@ func _find_anim_player(node: Node) -> AnimationPlayer:
 		var res = _find_anim_player(child)
 		if res: return res
 	return null
-
-

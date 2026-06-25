@@ -366,11 +366,6 @@ script = ExtResource("7_ocean")
 
 [node name="Character" parent="." instance=ExtResource("1_char_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 55)
-move_speed = null
-sprint_speed = null
-rotation_speed = null
-acceleration = null
-friction = null
 
 [node name="AtmosphereController" type="Node3D" parent="."]
 script = ExtResource("3_rupic")
