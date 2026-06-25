@@ -144,7 +144,7 @@ func _update_hair_physics(delta: float) -> void:
 		var stiffness = H_STIFF
 		var drag = H_DRAG
 		var gravity_force = H_GRAVITY
-		var wind_force = wind_world * H_WIND_MUL
+		var wind_force = wind_world * (H_WIND_MUL / 3.0) # Réduit au tiers pour la robe
 		var length_limit = 0.18
 		
 		if is_hair:
@@ -167,7 +167,7 @@ func _update_hair_physics(delta: float) -> void:
 		var cur = _hair_tail_cur[idx]
 		var prv = _hair_tail_prv[idx]
 		
-		var inertia = H_INERTIA
+		var inertia = H_INERTIA / 3.0 # Réduit au tiers pour la robe
 		if is_hair:
 			var front_multiplier = 0.5 if is_front else 1.0
 			# L'inertie est scalée par la vitesse et réduite pour la frange
